@@ -1,4 +1,5 @@
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3002';
+// API service for both local development and Vercel deployment
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || '';
 
 class ApiService {
   private token: string | null = null;
@@ -12,7 +13,10 @@ class ApiService {
   }
 
   private async request(endpoint: string, options: RequestInit = {}) {
-    const url = `${API_BASE_URL}${endpoint}`;
+    // For Vercel deployment, use relative URLs (API routes are on the same domain)
+    // For local development, use the full URL if NEXT_PUBLIC_API_URL is set
+    const url = API_BASE_URL ? `${API_BASE_URL}${endpoint}` : endpoint;
+
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
       ...(options.headers as Record<string, string>),
