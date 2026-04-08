@@ -12,8 +12,8 @@ const app = express();
 // Middleware
 app.use(cors({
   origin: process.env.NODE_ENV === 'production'
-    ? ['https://mxb-2026-sylhet-neural-nodes-agro-v.vercel.app', 'https://mxb-2026-sylhet-neural-nodes-agro-vision-r3skz53rz.vercel.app', 'https://agrovision-juh5mhvb3-aitijyasarkers-projects.vercel.app', 'https://agrovision-f5rbwngii-aitijyasarkers-projects.vercel.app', process.env.FRONTEND_URL].filter(Boolean)
-    : ['http://localhost:3000', 'http://localhost:3016', 'http://127.0.0.1:3000'],
+    ? ['https://mxb-2026-sylhet-neural-nodes-agro-v.vercel.app', 'https://mxb-2026-sylhet-neural-nodes-agro-vision-r3skz53rz.vercel.app', 'https://agrovision-juh5mhvb3-aitijyasarkers-projects.vercel.app', 'https://agrovision-f5rbwngii-aitijyasarkers-projects.vercel.app', process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : process.env.FRONTEND_URL].filter(Boolean)
+    : ['http://localhost:3000', 'http://localhost:3001', 'http://localhost:3016', 'http://127.0.0.1:3000', 'http://127.0.0.1:3001'],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
@@ -101,8 +101,8 @@ const authenticateToken = (req, res, next) => {
 // Handle OPTIONS for all routes (CORS preflight)
 app.options('*', (req, res) => {
   const allowedOrigins = process.env.NODE_ENV === 'production'
-    ? ['https://mxb-2026-sylhet-neural-nodes-agro-v.vercel.app', 'https://mxb-2026-sylhet-neural-nodes-agro-vision-r3skz53rz.vercel.app', 'https://agrovision-juh5mhvb3-aitijyasarkers-projects.vercel.app', 'https://agrovision-f5rbwngii-aitijyasarkers-projects.vercel.app', process.env.FRONTEND_URL].filter(Boolean)
-    : ['http://localhost:3000', 'http://localhost:3016', 'http://127.0.0.1:3000'];
+    ? ['https://mxb-2026-sylhet-neural-nodes-agro-v.vercel.app', 'https://mxb-2026-sylhet-neural-nodes-agro-vision-r3skz53rz.vercel.app', 'https://agrovision-juh5mhvb3-aitijyasarkers-projects.vercel.app', 'https://agrovision-f5rbwngii-aitijyasarkers-projects.vercel.app', process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : process.env.FRONTEND_URL].filter(Boolean)
+    : ['http://localhost:3000', 'http://localhost:3001', 'http://localhost:3016', 'http://127.0.0.1:3000', 'http://127.0.0.1:3001'];
 
   const origin = req.headers.origin;
   if (allowedOrigins.includes(origin) || allowedOrigins.includes('*')) {
