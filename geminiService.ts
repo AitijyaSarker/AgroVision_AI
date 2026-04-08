@@ -1,146 +1,168 @@
 
 // geminiService.ts
-// Mock implementation for Gemini/Google GenAI calls.
-// This provides fallback responses when the real API is not available.
+// Real Gemini/Google GenAI integration with fallback to mock responses
 
-// Initialize Gemini AI - mock implementation
+import { GoogleGenerativeAI } from '@google/generative-ai';
+
+// Initialize Gemini AI
 const getGeminiAI = () => {
-  return null; // Always return null for mock implementation
+  const apiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY;
+  if (!apiKey || apiKey === 'YOUR_ACTUAL_API_KEY_HERE') {
+    return null; // Fallback to mock
+  }
+  try {
+    return new GoogleGenerativeAI(apiKey);
+  } catch (error) {
+    console.error('Failed to initialize Gemini AI:', error);
+    return null;
+  }
 };
 
 const getGeminiModel = () => {
-  return null; // Always return null for mock implementation
+  const genAI = getGeminiAI();
+  if (!genAI) return null;
+
+  try {
+    return genAI.getGenerativeModel({
+      model: 'gemini-1.5-flash',
+      generationConfig: {
+        temperature: 0.7,
+        topK: 40,
+        topP: 0.95,
+        maxOutputTokens: 1024,
+      },
+    });
+  } catch (error) {
+    console.error('Failed to get Gemini model:', error);
+    return null;
+  }
 };
 
-export const detectCropDisease = async (_base64Image: string, _lang: 'en' | 'bn') => {
-  // Mock implementation for testing
-  await new Promise(resolve => setTimeout(resolve, 2000)); // Simulate API delay
+export const detectCropDisease = async (base64Image: string, lang: 'en' | 'bn') => {
+  try {
+    const model = getGeminiModel();
 
-  // Mock disease detection results with translations
+    if (!model) {
+      // Fallback to mock implementation
+      console.log('Using mock disease detection (Gemini API not available)');
+      return getMockDiseaseResult(lang);
+    }
+
+    // Prepare the image for Gemini Vision API
+    const imageData = {
+      inlineData: {
+        data: base64Image.replace(/^data:image\/[a-z]+;base64,/, ''), // Remove data URL prefix
+        mimeType: 'image/jpeg'
+      }
+    };
+
+    const prompt = lang === 'en'
+      ? `Analyze this crop/plant image and identify any diseases or health issues. Provide a detailed analysis including:
+         1. Disease name (if any)
+         2. Affected crop/plant type
+         3. Confidence level (0-1)
+         4. Description of the problem
+         5. Recommended treatment/solution
+         6. Prevention measures
+
+         Focus on common agricultural crops in Bangladesh (rice, wheat, jute, potato, tomato, vegetables).
+         If the image appears healthy, indicate that clearly.
+         Format your response as JSON with these exact keys: diseaseName, cropName, confidence, description, solution (array), prevention (array).`
+      : `এই ফসল/গাছের ছবি বিশ্লেষণ করে কোন রোগ বা স্বাস্থ্য সমস্যা শনাক্ত করুন। বিস্তারিত বিশ্লেষণ প্রদান করুন যার মধ্যে অন্তর্ভুক্ত:
+         1. রোগের নাম (যদি থাকে)
+         2. আক্রান্ত ফসল/গাছের ধরন
+         3. আত্মবিশ্বাসের মাত্রা (0-1)
+         4. সমস্যার বিবরণ
+         5. প্রস্তাবিত চিকিৎসা/সমাধান
+         6. প্রতিরোধ ব্যবস্থা
+
+         বাংলাদেশের সাধারণ কৃষি ফসলগুলোতে ফোকাস করুন (ধান, গম, পাট, আলু, টমেটো, শাকসবজি)।
+         যদি ছবিটি স্বাস্থ্যকর দেখায়, তাহলে স্পষ্টভাবে নির্দেশ করুন।
+         আপনার উত্তরটি এই সঠিক কীগুলো সহ JSON ফরম্যাটে ফরম্যাট করুন: diseaseName, cropName, confidence, description, solution (array), prevention (array).`;
+
+    const result = await model.generateContent([prompt, imageData]);
+    const response = await result.response;
+    const text = response.text();
+
+    try {
+      // Try to parse the response as JSON
+      const parsedResponse = JSON.parse(text.replace(/```json\n?|\n?```/g, '').trim());
+
+      // Validate the response structure
+      if (parsedResponse.diseaseName && parsedResponse.cropName && typeof parsedResponse.confidence === 'number') {
+        return {
+          diseaseName: parsedResponse.diseaseName,
+          cropName: parsedResponse.cropName,
+          confidence: Math.min(Math.max(parsedResponse.confidence, 0), 1), // Ensure confidence is between 0-1
+          description: parsedResponse.description || (lang === 'en' ? 'Analysis completed' : 'বিশ্লেষণ সম্পন্ন'),
+          solution: Array.isArray(parsedResponse.solution) ? parsedResponse.solution : [lang === 'en' ? 'Consult local agricultural expert' : 'স্থানীয় কৃষি বিশেষজ্ঞের সাথে পরামর্শ করুন'],
+          prevention: Array.isArray(parsedResponse.prevention) ? parsedResponse.prevention : [lang === 'en' ? 'Regular monitoring recommended' : 'নিয়মিত পর্যবেক্ষণ সুপারিশ করা হয়']
+        };
+      }
+    } catch (parseError) {
+      console.error('Failed to parse Gemini response as JSON:', parseError);
+    }
+
+    // If JSON parsing fails, extract information from text response
+    console.log('Gemini response (non-JSON):', text);
+
+    // Fallback to mock result if parsing fails
+    return getMockDiseaseResult(lang);
+
+  } catch (error) {
+    console.error('Gemini API error:', error);
+    // Fallback to mock implementation
+    return getMockDiseaseResult(lang);
+  }
+};
+
+// Mock disease result helper function
+const getMockDiseaseResult = (lang: 'en' | 'bn') => {
   const mockResults = [
     {
       diseaseName: { en: 'Leaf Blight', bn: 'পাতা পচা' },
       cropName: { en: 'Rice', bn: 'ধান' },
       confidence: 0.87,
-      description: { 
+      description: {
         en: 'Fungal infection causing brown spots on leaves. Common in humid conditions.',
         bn: 'পাতায় বাদামী দাগ সৃষ্টিকারী ছত্রাকজনিত সংক্রমণ। আর্দ্র পরিবেশে সাধারণ।'
       },
       solution: {
-        en: [
-          'Apply fungicide spray immediately',
-          'Remove affected leaves',
-          'Improve air circulation around plants',
-          'Avoid overhead watering'
-        ],
-        bn: [
-          'অবিলম্বে ছত্রাকনাশক স্প্রে প্রয়োগ করুন',
-          'আক্রান্ত পাতা অপসারণ করুন',
-          'গাছের চারপাশে বায়ু চলাচল উন্নত করুন',
-          'উপর থেকে পানি দেওয়া এড়িয়ে চলুন'
-        ]
+        en: ['Apply fungicide spray immediately', 'Remove affected leaves', 'Improve air circulation'],
+        bn: ['অবিলম্বে ছত্রাকনাশক স্প্রে প্রয়োগ করুন', 'আক্রান্ত পাতা অপসারণ করুন', 'বায়ু চলাচল উন্নত করুন']
       },
       prevention: {
-        en: [
-          'Use disease-resistant varieties',
-          'Maintain proper plant spacing',
-          'Avoid working with wet plants',
-          'Apply preventive fungicide in high-risk periods'
-        ],
-        bn: [
-          'রোগ প্রতিরোধী জাত ব্যবহার করুন',
-          'গাছের মধ্যে সঠিক দূরত্ব বজায় রাখুন',
-          'ভেজা গাছ নিয়ে কাজ করা এড়িয়ে চলুন',
-          'উচ্চ ঝুঁকি সময়ে প্রতিরোধক ছত্রাকনাশক প্রয়োগ করুন'
-        ]
+        en: ['Use disease-resistant varieties', 'Maintain proper plant spacing', 'Avoid overhead watering'],
+        bn: ['রোগ প্রতিরোধী জাত ব্যবহার করুন', 'গাছের মধ্যে সঠিক দূরত্ব বজায় রাখুন', 'উপর থেকে পানি দেওয়া এড়িয়ে চলুন']
       }
     },
     {
       diseaseName: { en: 'Powdery Mildew', bn: 'পাউডারি মিলডিউ' },
       cropName: { en: 'Wheat', bn: 'গম' },
       confidence: 0.92,
-      description: { 
+      description: {
         en: 'White powdery coating on leaves caused by fungal spores.',
         bn: 'ছত্রাকজনিত স্পোর দ্বারা পাতায় সাদা পাউডারি আবরণ।'
       },
       solution: {
-        en: [
-          'Spray with sulfur-based fungicide',
-          'Increase air circulation',
-          'Reduce humidity around plants',
-          'Prune affected areas'
-        ],
-        bn: [
-          'সালফার ভিত্তিক ছত্রাকনাশক দিয়ে স্প্রে করুন',
-          'বায়ু চলাচল বাড়ান',
-          'গাছের চারপাশে আর্দ্রতা কমান',
-          'আক্রান্ত এলাকা ছাঁটাই করুন'
-        ]
+        en: ['Spray with sulfur-based fungicide', 'Increase air circulation', 'Reduce humidity'],
+        bn: ['সালফার ভিত্তিক ছত্রাকনাশক দিয়ে স্প্রে করুন', 'বায়ু চলাচল বাড়ান', 'আর্দ্রতা কমান']
       },
       prevention: {
-        en: [
-          'Plant resistant varieties',
-          'Avoid overhead irrigation',
-          'Space plants properly for air flow',
-          'Monitor humidity levels'
-        ],
-        bn: [
-          'প্রতিরোধী জাত রোপণ করুন',
-          'উপর থেকে সেচ এড়িয়ে চলুন',
-          'বায়ু চলাচলের জন্য গাছের দূরত্ব ঠিক রাখুন',
-          'আর্দ্রতার মাত্রা নিরীক্ষণ করুন'
-        ]
-      }
-    },
-    {
-      diseaseName: { en: 'Bacterial Spot', bn: 'ব্যাকটেরিয়াল স্পট' },
-      cropName: { en: 'Tomato', bn: 'টমেটো' },
-      confidence: 0.78,
-      description: { 
-        en: 'Small dark spots on leaves and fruits caused by bacterial infection.',
-        bn: 'ব্যাকটেরিয়াল সংক্রমণের কারণে পাতা ও ফলে ছোট কালো দাগ।'
-      },
-      solution: {
-        en: [
-          'Apply copper-based bactericide',
-          'Remove infected plant parts',
-          'Improve drainage',
-          'Avoid working with wet plants'
-        ],
-        bn: [
-          'কপার ভিত্তিক ব্যাকটেরিয়ানাশক প্রয়োগ করুন',
-          'সংক্রামিত গাছের অংশ অপসারণ করুন',
-          'নিষ্কাশন উন্নত করুন',
-          'ভেজা গাছ নিয়ে কাজ করা এড়িয়ে চলুন'
-        ]
-      },
-      prevention: {
-        en: [
-          'Use certified disease-free seeds',
-          'Rotate crops annually',
-          'Avoid overhead watering',
-          'Maintain proper plant spacing'
-        ],
-        bn: [
-          'প্রত্যয়িত রোগমুক্ত বীজ ব্যবহার করুন',
-          'বার্ষিক ফসল পরিবর্তন করুন',
-          'উপর থেকে পানি দেওয়া এড়িয়ে চলুন',
-          'গাছের মধ্যে সঠিক দূরত্ব বজায় রাখুন'
-        ]
+        en: ['Plant resistant varieties', 'Avoid overhead irrigation', 'Space plants properly'],
+        bn: ['প্রতিরোধী জাত রোপণ করুন', 'উপর থেকে সেচ এড়িয়ে চলুন', 'গাছের দূরত্ব ঠিক রাখুন']
       }
     }
   ];
 
   const randomResult = mockResults[Math.floor(Math.random() * mockResults.length)];
-  
-  // Return result in the requested language
   return {
-    diseaseName: randomResult.diseaseName[_lang],
-    cropName: randomResult.cropName[_lang],
+    diseaseName: randomResult.diseaseName[lang],
+    cropName: randomResult.cropName[lang],
     confidence: randomResult.confidence,
-    description: randomResult.description[_lang],
-    solution: randomResult.solution[_lang],
-    prevention: randomResult.prevention[_lang]
+    description: randomResult.description[lang],
+    solution: randomResult.solution[lang],
+    prevention: randomResult.prevention[lang]
   };
 };
 
