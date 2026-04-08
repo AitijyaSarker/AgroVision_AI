@@ -1,26 +1,38 @@
 import mongoose from 'mongoose';
 
-
-// MongoDB connection URI - supports both local and Atlas
+// CRITICAL: For Vercel, MONGODB_URI is required. For local dev, use fallback.
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/agrovision';
 
+let isConnected = false;
+
 export const connectDB = async () => {
+  // Check on Vercel only
+  const isVercel = !!process.env.VERCEL_URL;
+  if (isVercel && !process.env.MONGODB_URI) {
+    throw new Error('🔴 CRITICAL: MONGODB_URI environment variable is not defined on Vercel. Check Vercel environment variables.');
+  }
+
+  // Prevent multiple connections
+  if (isConnected && mongoose.connection.readyState >= 1) {
+    console.log('ℹ️ Using existing MongoDB connection');
+    return;
+  }
+
   try {
-    // Prevent multiple connections in development
-    if (mongoose.connection.readyState >= 1) {
-      return;
-    }
-
-    await mongoose.connect(MONGODB_URI, {
-      // Modern Mongoose options
-      serverSelectionTimeoutMS: 5000, // Keep trying to send operations for 5 seconds
-      socketTimeoutMS: 45000, // Close sockets after 45 seconds of inactivity
+    console.log('🔗 Connecting to MongoDB...');
+    console.log('📍 MONGODB_URI exists:', !!MONGODB_URI);
+    
+    const db = await mongoose.connect(MONGODB_URI, {
+      serverSelectionTimeoutMS: 5000,
+      socketTimeoutMS: 45000,
     });
-
+    
+    isConnected = db.connections[0].readyState === 1;
     console.log('✅ MongoDB connected successfully');
-  } catch (error) {
-    console.error('❌ MongoDB connection error:', error);
-    throw error;
+  } catch (error: any) {
+    console.error('❌ MongoDB connection error:', error?.message || error);
+    isConnected = false;
+    throw new Error(`MongoDB connection failed: ${error?.message || 'Unknown error'}`);
   }
 };
 
@@ -28,8 +40,14 @@ export const connectDB = async () => {
 const userSchema = new mongoose.Schema({
   email: { type: String, required: true, unique: true },
   name: { type: String, required: true },
-  role: { type: String, enum: ['farmer', 'specialist'], required: true },
+  password: { type: String, required: true },
+  role: { type: String, enum: ['farmer', 'specialist'], default: 'farmer' },
   avatar: { type: String, default: '' },
+  location: {
+    lat: Number,
+    lng: Number,
+    address: String
+  },
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now }
 });
@@ -53,6 +71,7 @@ const scanSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now }
 });
 
-export const User = mongoose.model('User', userSchema);
-export const Message = mongoose.model('Message', messageSchema);
-export const Scan = mongoose.model('Scan', scanSchema);
+// Prevent model redefinition in development
+export const User = (mongoose.models.User || mongoose.model('User', userSchema)) as any;
+export const Message = (mongoose.models.Message || mongoose.model('Message', messageSchema)) as any;
+export const Scan = (mongoose.models.Scan || mongoose.model('Scan', scanSchema)) as any;

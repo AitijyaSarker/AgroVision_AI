@@ -1,84 +1,70 @@
 import { NextRequest, NextResponse } from 'next/server';
-import mongoose from 'mongoose';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-
-// MongoDB connection
-const connectDB = async () => {
-  if (mongoose.connections[0].readyState) return;
-  await mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/agrovision');
-};
-
-// User interface
-interface IUser {
-  id: string;
-  name: string;
-  email: string;
-  password: string;
-  role: 'farmer' | 'specialist';
-  location: {
-    lat: number;
-    lng: number;
-    address: string;
-  };
-  createdAt: Date;
-}
-
-// User schema
-const userSchema = new mongoose.Schema<IUser>({
-  id: String,
-  name: String,
-  email: String,
-  password: String,
-  role: { type: String, enum: ['farmer', 'specialist'], default: 'farmer' },
-  location: {
-    lat: Number,
-    lng: Number,
-    address: String
-  },
-  createdAt: { type: Date, default: Date.now }
-});
-
-const User = mongoose.models.User || mongoose.model('User', userSchema);
+import { connectDB, User } from '@/models';
 
 export async function POST(request: NextRequest) {
   try {
+    // FIRST: Connect to database
     await connectDB();
+    console.log('✅ Connected to MongoDB, processing registration...');
 
     const { name, email, password, role, location } = await request.json();
 
-    const existingUser = await (User as any).findOne({ email });
-    if (existingUser) {
-      return NextResponse.json({ error: 'User already exists' }, { status: 400 });
+    // Validate required fields
+    if (!email || !password || !name) {
+      return NextResponse.json(
+        { error: 'Email, password, and name are required' },
+        { status: 400 }
+      );
     }
 
+    // Check if user exists
+    const existingUser = await User.findOne({ email });
+    if (existingUser) {
+      return NextResponse.json(
+        { error: 'User already exists' },
+        { status: 400 }
+      );
+    }
+
+    // Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
+
+    // Create new user
     const user = new User({
-      id: Date.now().toString(),
-      name,
       email,
+      name,
       password: hashedPassword,
       role: role || 'farmer',
       location
     });
 
     await user.save();
+    console.log('✅ User created:', email);
+
+    // Generate token
     const token = jwt.sign(
-      { id: user.id, email: user.email },
-      process.env.JWT_SECRET || 'your-secret-key'
+      { id: user._id, email: user.email },
+      process.env.JWT_SECRET || 'your-secret-key',
+      { expiresIn: '7d' }
     );
 
     return NextResponse.json({
       token,
       user: {
-        id: user.id,
+        id: user._id,
         name: user.name,
         email: user.email,
         role: user.role
       }
     });
-  } catch (error) {
-    console.error('Registration error:', error);
-    return NextResponse.json({ error: 'Registration failed' }, { status: 500 });
+
+  } catch (error: any) {
+    console.error('❌ Registration error:', error);
+    return NextResponse.json(
+      { error: error?.message || 'Registration failed' },
+      { status: 500 }
+    );
   }
 }
