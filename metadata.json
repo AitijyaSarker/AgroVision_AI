@@ -1,0 +1,8 @@
+{
+  "name": "Agro Vision - AI Crop Disease Detection",
+  "description": "A high-performance, bilingual (Bangla/English) AI-powered platform helping Bangladeshi farmers detect crop diseases using Gemini AI.",
+  "requestFramePermissions": [
+    "camera",
+    "geolocation"
+  ]
+}

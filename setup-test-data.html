@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AgroVision Test Data Setup</title>
+</head>
+<body>
+    <h1>AgroVision Test Data Setup</h1>
+    <button onclick="setupTestData()">Setup Test Data</button>
+    <div id="status"></div>
+
+    <script>
+        function setupTestData() {
+            const STORAGE_KEYS = {
+                users: 'agrovision_users',
+                messages: 'agrovision_messages',
+                scans: 'agrovision_scans'
+            };
+
+            // Clear existing data
+            localStorage.removeItem(STORAGE_KEYS.users);
+            localStorage.removeItem(STORAGE_KEYS.messages);
+            localStorage.removeItem(STORAGE_KEYS.scans);
+
+            // Add test users
+            const testUsers = [
+                {
+                    _id: 'farmer1',
+                    email: 'farmer1@example.com',
+                    name: 'John Farmer',
+                    role: 'farmer',
+                    avatar: 'https://picsum.photos/100/100?q=john',
+                    createdAt: new Date()
+                },
+                {
+                    _id: 'farmer2',
+                    email: 'farmer2@example.com',
+                    name: 'Jane Farmer',
+                    role: 'farmer',
+                    avatar: 'https://picsum.photos/100/100?q=jane',
+                    createdAt: new Date()
+                },
+                {
+                    _id: 'specialist1',
+                    email: 'specialist1@example.com',
+                    name: 'Dr. Smith',
+                    role: 'specialist',
+                    avatar: 'https://picsum.photos/100/100?q=smith',
+                    createdAt: new Date()
+                },
+                {
+                    _id: 'specialist2',
+                    email: 'specialist2@example.com',
+                    name: 'Dr. Johnson',
+                    role: 'specialist',
+                    avatar: 'https://picsum.photos/100/100?q=johnson',
+                    createdAt: new Date()
+                }
+            ];
+
+            localStorage.setItem(STORAGE_KEYS.users, JSON.stringify(testUsers));
+
+            // Add some test messages
+            const testMessages = [
+                {
+                    _id: 'msg1',
+                    conversationId: 'farmer1-specialist1',
+                    senderId: 'farmer1',
+                    text: 'Hello Dr. Smith, I have a problem with my tomato plants.',
+                    createdAt: new Date(Date.now() - 3600000) // 1 hour ago
+                },
+                {
+                    _id: 'msg2',
+                    conversationId: 'farmer1-specialist1',
+                    senderId: 'specialist1',
+                    text: 'Hi John! Can you describe the symptoms you\'re seeing?',
+                    createdAt: new Date(Date.now() - 3300000) // 55 minutes ago
+                },
+                {
+                    _id: 'msg3',
+                    conversationId: 'farmer2-specialist2',
+                    senderId: 'farmer2',
+                    text: 'My corn crops are showing yellow spots.',
+                    createdAt: new Date(Date.now() - 1800000) // 30 minutes ago
+                },
+                {
+                    _id: 'msg4',
+                    conversationId: 'farmer2-specialist2',
+                    senderId: 'specialist2',
+                    text: 'That sounds like corn blight. Let me help you with treatment options.',
+                    createdAt: new Date(Date.now() - 1500000) // 25 minutes ago
+                }
+            ];
+
+            localStorage.setItem(STORAGE_KEYS.messages, JSON.stringify(testMessages));
+
+            document.getElementById('status').innerHTML = `
+                <p style="color: green;">✅ Test data initialized successfully!</p>
+                <p>Users: ${testUsers.length}</p>
+                <p>Messages: ${testMessages.length}</p>
+                <p><a href="http://localhost:3001" target="_blank">Go to AgroVision App</a></p>
+            `;
+        }
+    </script>
+</body>
+</html>
