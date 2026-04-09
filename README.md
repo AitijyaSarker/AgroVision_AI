@@ -87,7 +87,7 @@ Works across mobile, tablet, and desktop devices.
 
 ### 🧠 Backend & Services
 <p>
-  <img src="https://img.shields.io/badge/Supabase-20232A?style=for-the-badge&logo=supabase&logoColor=3ECF8E" />
+  <img src="https://img.shields.io/badge/MongoDB-20232A?style=for-the-badge&logo=mongodb&logoColor=47A248" />
   <img src="https://img.shields.io/badge/PostgreSQL-20232A?style=for-the-badge&logo=postgresql&logoColor=336791" />
   <img src="https://img.shields.io/badge/Gemini_AI-20232A?style=for-the-badge&logo=google&logoColor=4285F4" />
   <img src="https://img.shields.io/badge/OpenStreetMap-20232A?style=for-the-badge&logo=openstreetmap&logoColor=7EBC6F" />
