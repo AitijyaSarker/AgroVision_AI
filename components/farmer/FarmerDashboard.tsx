@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
-import { Search, MessageSquare, MapPin, Users, Bell, LayoutDashboard, RefreshCw, Send } from 'lucide-react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { Search, MessageSquare, MapPin, Users, Bell, LayoutDashboard, RefreshCw, Send, Camera } from 'lucide-react';
+import { normalizeUserId } from '../../lib/messages';
 import dynamic from 'next/dynamic';
 import { dbService } from '../../mongodb';
 import { Specialist, Conversation, Language } from '../../types';
@@ -24,9 +25,16 @@ interface FarmerDashboardProps {
   userId?: string;
   user?: any;
   lang: Language;
+  onProfileUpdate?: (updates: { name: string; avatar: string }) => void;
 }
 
-const FarmerDashboard: React.FC<FarmerDashboardProps> = ({ userRole, userId, user, lang }) => {
+const FarmerDashboard: React.FC<FarmerDashboardProps> = ({
+  userRole,
+  userId,
+  user,
+  lang,
+  onProfileUpdate,
+}) => {
   const t = (key: string) => translations[key]?.[lang] || key;
   const [activeTab, setActiveTab] = useState<'scan' | 'chat' | 'offices' | 'specialists' | 'messages' | 'profile'>('scan');
   const [specialists, setSpecialists] = useState<Specialist[]>([]);
@@ -39,7 +47,16 @@ const FarmerDashboard: React.FC<FarmerDashboardProps> = ({ userRole, userId, use
   const [sentSuccess, setSentSuccess] = useState(false);
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [selectedMessageConv, setSelectedMessageConv] = useState<Conversation | null>(null);
+  const [messagesLoading, setMessagesLoading] = useState(false);
   const [userProfile, setUserProfile] = useState<any>(null);
+  const [profileName, setProfileName] = useState('');
+  const [profileAvatar, setProfileAvatar] = useState('');
+  const [profileLoading, setProfileLoading] = useState(false);
+  const [profileSaving, setProfileSaving] = useState(false);
+  const [profileError, setProfileError] = useState<string | null>(null);
+  const [profileSuccess, setProfileSuccess] = useState(false);
+  const avatarInputRef = useRef<HTMLInputElement>(null);
+  const farmerId = normalizeUserId(userId);
   const [chatMessages, setChatMessages] = useState<{role: 'user' | 'assistant', content: string}[]>([]);
   const [chatInput, setChatInput] = useState('');
   const [chatLoading, setChatLoading] = useState(false);
@@ -49,19 +66,47 @@ const FarmerDashboard: React.FC<FarmerDashboardProps> = ({ userRole, userId, use
     setChatMessages([{ role: 'assistant', content: t('ai_greeting') }]);
   }, [lang]);
 
-  useEffect(() => {
-    // Set user data from props
-    if (user) {
+  const avatarSrc =
+    profileAvatar || userProfile?.avatar || user?.avatar || `https://picsum.photos/80/80?person=${farmerId || 'farmer'}`;
+
+  const loadUserProfile = useCallback(async () => {
+    if (!farmerId) return;
+    setProfileLoading(true);
+    const { data, error } = await dbService.getProfile(farmerId);
+    if (data && !error) {
+      setUserProfile(data);
+      setProfileName(data.name || '');
+      setProfileAvatar(data.avatar || '');
+    } else if (user) {
       setUserProfile(user);
+      setProfileName(user.name || '');
+      setProfileAvatar(user.avatar || '');
+    }
+    setProfileLoading(false);
+  }, [farmerId, user]);
+
+  useEffect(() => {
+    if (user) {
+      setUserProfile((prev: any) => ({ ...prev, ...user }));
+      if (!profileName) setProfileName(user.name || '');
+      if (!profileAvatar) setProfileAvatar(user.avatar || '');
     }
   }, [user]);
 
   useEffect(() => {
-    if (userId) {
+    if (farmerId) {
       loadSpecialists();
       loadConversations();
+      loadUserProfile();
     }
-  }, [userId]);
+  }, [farmerId]);
+
+  useEffect(() => {
+    if (activeTab !== 'messages' || !farmerId) return;
+    loadConversations(true);
+    const interval = setInterval(() => loadConversations(true), 8000);
+    return () => clearInterval(interval);
+  }, [activeTab, farmerId]);
 
   const loadSpecialists = async () => {
     setSpecialistsLoading(true);
@@ -76,13 +121,69 @@ const FarmerDashboard: React.FC<FarmerDashboardProps> = ({ userRole, userId, use
     setSpecialistsLoading(false);
   };
 
-  const loadConversations = async () => {
-    if (!userId) return;
-    const { data, error } = await dbService.getConversations(userId);
+  const loadConversations = async (silent = false) => {
+    if (!farmerId) return;
+    if (!silent) setMessagesLoading(true);
+    const { data, error } = await dbService.getConversations(farmerId);
     if (!error && data) {
       setConversations(data);
+      setSelectedMessageConv((prev) => {
+        if (!prev) return prev;
+        return data.find((c: Conversation) => c.id === prev.id) || prev;
+      });
     }
+    if (!silent) setMessagesLoading(false);
   };
+
+  const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      setProfileError(lang === 'bn' ? 'শুধু ছবি ফাইল গ্রহণযোগ্য' : 'Only image files are allowed');
+      return;
+    }
+    if (file.size > 400_000) {
+      setProfileError(
+        lang === 'bn' ? 'ছবি ৪০০KB এর ছোট হতে হবে' : 'Image must be smaller than 400KB'
+      );
+      return;
+    }
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setProfileAvatar(reader.result as string);
+      setProfileError(null);
+      setProfileSuccess(false);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleSaveProfile = async () => {
+    if (!farmerId || profileSaving) return;
+    const name = profileName.trim();
+    if (!name) {
+      setProfileError(lang === 'bn' ? 'নাম প্রয়োজন' : 'Name is required');
+      return;
+    }
+    setProfileSaving(true);
+    setProfileError(null);
+    const { data, error } = await dbService.updateProfile(farmerId, {
+      name,
+      avatar: profileAvatar,
+    });
+    setProfileSaving(false);
+    if (error || !data) {
+      setProfileError(error || (lang === 'bn' ? 'সংরক্ষণ ব্যর্থ' : 'Failed to save'));
+      return;
+    }
+    setUserProfile(data);
+    setProfileName(data.name);
+    setProfileAvatar(data.avatar || '');
+    setProfileSuccess(true);
+    onProfileUpdate?.({ name: data.name, avatar: data.avatar || '' });
+    setTimeout(() => setProfileSuccess(false), 3000);
+  };
+
+  const isOwnMessage = (senderId: string) => normalizeUserId(senderId) === farmerId;
 
   const handleConsult = (specialist: Specialist) => {
     setConsulting(specialist);
@@ -104,7 +205,7 @@ const FarmerDashboard: React.FC<FarmerDashboardProps> = ({ userRole, userId, use
     setSendError(null);
 
     const { error } = await dbService.sendMessage({
-      fromUserId: userId,
+      fromUserId: farmerId,
       toUserId: specialistId,
       text: messageText.trim(),
       timestamp: new Date(),
@@ -120,7 +221,17 @@ const FarmerDashboard: React.FC<FarmerDashboardProps> = ({ userRole, userId, use
       return;
     }
 
-    await loadConversations();
+    await loadConversations(true);
+    const convId = [farmerId, specialistId].sort().join('_');
+    setActiveTab('messages');
+    setTimeout(async () => {
+      const { data } = await dbService.getConversations(farmerId);
+      if (data) {
+        setConversations(data);
+        const match = data.find((c: Conversation) => c.id === convId);
+        if (match) setSelectedMessageConv(match);
+      }
+    }, 300);
     setSentSuccess(true);
     setTimeout(() => {
       setSentSuccess(false);
@@ -340,7 +451,8 @@ const FarmerDashboard: React.FC<FarmerDashboardProps> = ({ userRole, userId, use
             <div className="flex items-center justify-between">
               <h2 className="text-2xl font-bold text-zinc-900 dark:text-white">{t('messages_title')}</h2>
               <button
-                onClick={loadConversations}
+                type="button"
+                onClick={() => loadConversations()}
                 className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white font-bold rounded-xl transition-all flex items-center gap-2"
               >
                 <RefreshCw className="w-4 h-4" />
@@ -349,7 +461,11 @@ const FarmerDashboard: React.FC<FarmerDashboardProps> = ({ userRole, userId, use
             </div>
 
             <div className="space-y-4">
-              {conversations.length > 0 ? conversations.map((conv) => (
+              {messagesLoading ? (
+                <div className="flex justify-center py-12">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600" />
+                </div>
+              ) : conversations.length > 0 ? conversations.map((conv) => (
                 <div
                   key={conv.id}
                   role="button"
@@ -376,23 +492,36 @@ const FarmerDashboard: React.FC<FarmerDashboardProps> = ({ userRole, userId, use
                       <p className="text-zinc-700 dark:text-zinc-300 font-bold">{conv.lastMessage}</p>
 
                       {selectedMessageConv?.id === conv.id && (
-                        <div className="mt-4 pt-4 border-t border-zinc-200 dark:border-zinc-700 space-y-3 max-h-64 overflow-y-auto">
-                          {conv.messages.map((msg) => (
-                            <div
-                              key={msg.id}
-                              className={`flex ${msg.senderId === userId ? 'justify-end' : 'justify-start'}`}
-                            >
-                              <p
-                                className={`text-sm font-bold p-3 rounded-2xl max-w-md ${
-                                  msg.senderId === userId
-                                    ? 'bg-green-600 text-white'
-                                    : 'bg-zinc-50 dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300'
-                                }`}
+                        <div className="mt-4 pt-4 border-t border-zinc-200 dark:border-zinc-700 space-y-3 max-h-80 overflow-y-auto">
+                          {(selectedMessageConv.messages.length
+                            ? selectedMessageConv.messages
+                            : conv.messages
+                          ).map((msg) => {
+                            const mine = isOwnMessage(msg.senderId);
+                            return (
+                              <div
+                                key={msg.id}
+                                className={`flex flex-col ${mine ? 'items-end' : 'items-start'}`}
                               >
-                                {msg.text}
-                              </p>
-                            </div>
-                          ))}
+                                {!mine && (
+                                  <span className="text-[10px] font-bold text-green-700 dark:text-green-400 mb-1 uppercase">
+                                    {conv.otherUserName ||
+                                      conv.farmerName ||
+                                      (lang === 'bn' ? 'বিশেষজ্ঞ' : 'Specialist')}
+                                  </span>
+                                )}
+                                <p
+                                  className={`text-sm font-bold p-3 rounded-2xl max-w-md ${
+                                    mine
+                                      ? 'bg-green-600 text-white'
+                                      : 'bg-zinc-50 dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700'
+                                  }`}
+                                >
+                                  {msg.text}
+                                </p>
+                              </div>
+                            );
+                          })}
                         </div>
                       )}
                     </div>
@@ -416,72 +545,102 @@ const FarmerDashboard: React.FC<FarmerDashboardProps> = ({ userRole, userId, use
             <h2 className="text-2xl font-bold text-zinc-900 dark:text-white">{t('profile_title')}</h2>
 
             <div className="bg-white dark:bg-zinc-800 p-6 rounded-3xl shadow-lg border border-zinc-200 dark:border-zinc-700">
-              <div className="flex items-center gap-6 mb-6">
-                <img src={userProfile?.avatar || "https://picsum.photos/80/80?person=1"} className="w-20 h-20 rounded-2xl border border-zinc-200" alt="avatar" />
-                <div>
-                  <h3 className="text-xl font-bold text-zinc-900 dark:text-white">{userProfile?.name || 'Farmer'}</h3>
-                  <p className="text-zinc-700 dark:text-zinc-500 font-bold">{userProfile?.email || 'farmer@example.com'}</p>
-                  <p className="text-zinc-500 dark:text-zinc-400 text-sm">Member since {userProfile?.createdAt ? new Date(userProfile.createdAt).toLocaleDateString() : 'Recently'}</p>
+              {profileLoading ? (
+                <div className="flex justify-center py-12">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600" />
                 </div>
-              </div>
+              ) : (
+                <>
+                  <div className="flex flex-col sm:flex-row items-center gap-6 mb-8">
+                    <div className="relative">
+                      <img
+                        src={avatarSrc}
+                        className="w-24 h-24 rounded-2xl border-4 border-green-500 object-cover"
+                        alt="avatar"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => avatarInputRef.current?.click()}
+                        className="absolute bottom-0 right-0 p-2 bg-green-600 hover:bg-green-700 text-white rounded-full shadow-lg"
+                        title={lang === 'bn' ? 'ছবি পরিবর্তন' : 'Change photo'}
+                      >
+                        <Camera className="w-4 h-4" />
+                      </button>
+                      <input
+                        ref={avatarInputRef}
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={handleAvatarChange}
+                      />
+                    </div>
+                    <div className="text-center sm:text-left">
+                      <h3 className="text-xl font-bold text-zinc-900 dark:text-white">
+                        {profileName || userProfile?.name || 'Farmer'}
+                      </h3>
+                      <p className="text-zinc-700 dark:text-zinc-500 font-bold">
+                        {userProfile?.email || user?.email}
+                      </p>
+                      <p className="text-sm text-green-600 font-bold uppercase mt-1">
+                        {lang === 'bn' ? 'কৃষক' : 'Farmer'}
+                      </p>
+                    </div>
+                  </div>
 
-              <div className="grid md:grid-cols-2 gap-6">
-                <div>
-                  <label className="text-sm font-black text-zinc-700 dark:text-zinc-500 uppercase tracking-widest mb-2 block">{t('full_name')}</label>
-                  <input
-                    type="text"
-                    defaultValue={userProfile?.name || ''}
-                    className="w-full p-4 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 text-zinc-900 dark:text-white font-bold rounded-2xl outline-none focus:ring-2 ring-green-600"
-                    placeholder={t('full_name')}
-                  />
-                </div>
-                <div>
-                  <label className="text-sm font-black text-zinc-700 dark:text-zinc-500 uppercase tracking-widest mb-2 block">{t('email')}</label>
-                  <input
-                    type="email"
-                    defaultValue={userProfile?.email || ''}
-                    className="w-full p-4 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 text-zinc-900 dark:text-white font-bold rounded-2xl outline-none focus:ring-2 ring-green-600"
-                    placeholder={t('email')}
-                  />
-                </div>
-                <div>
-                  <label className="text-sm font-black text-zinc-700 dark:text-zinc-500 uppercase tracking-widest mb-2 block">{t('phone')}</label>
-                  <input
-                    type="tel"
-                    defaultValue={userProfile?.phone || ''}
-                    className="w-full p-4 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 text-zinc-900 dark:text-white font-bold rounded-2xl outline-none focus:ring-2 ring-green-600"
-                    placeholder={t('phone')}
-                  />
-                </div>
-                <div>
-                  <label className="text-sm font-black text-zinc-700 dark:text-zinc-500 uppercase tracking-widest mb-2 block">{t('location')}</label>
-                  <input
-                    type="text"
-                    defaultValue={userProfile?.location || ''}
-                    className="w-full p-4 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 text-zinc-900 dark:text-white font-bold rounded-2xl outline-none focus:ring-2 ring-green-600"
-                    placeholder={t('location')}
-                  />
-                </div>
-              </div>
+                  <div className="grid md:grid-cols-2 gap-6">
+                    <div>
+                      <label className="text-sm font-black text-zinc-700 dark:text-zinc-500 uppercase tracking-widest mb-2 block">
+                        {t('full_name')}
+                      </label>
+                      <input
+                        type="text"
+                        value={profileName}
+                        onChange={(e) => {
+                          setProfileName(e.target.value);
+                          setProfileSuccess(false);
+                        }}
+                        className="w-full p-4 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 text-zinc-900 dark:text-white font-bold rounded-2xl outline-none focus:ring-2 ring-green-600"
+                        placeholder={t('full_name')}
+                      />
+                    </div>
+                    <div>
+                      <label className="text-sm font-black text-zinc-700 dark:text-zinc-500 uppercase tracking-widest mb-2 block">
+                        {t('email')}
+                      </label>
+                      <input
+                        type="email"
+                        value={userProfile?.email || ''}
+                        disabled
+                        className="w-full p-4 bg-zinc-100 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-700 text-zinc-500 font-bold rounded-2xl cursor-not-allowed"
+                      />
+                    </div>
+                  </div>
 
-              <div className="mt-6">
-                <label className="text-sm font-black text-zinc-700 dark:text-zinc-500 uppercase tracking-widest mb-2 block">{t('farm_description')}</label>
-                <textarea
-                  rows={4}
-                  defaultValue={userProfile?.farmDescription || ''}
-                  className="w-full p-4 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 text-zinc-900 dark:text-white font-bold rounded-2xl outline-none focus:ring-2 ring-green-600"
-                  placeholder={t('describe_farm')}
-                />
-              </div>
+                  {profileError && (
+                    <p className="mt-4 text-sm font-bold text-red-600 dark:text-red-400">{profileError}</p>
+                  )}
+                  {profileSuccess && (
+                    <p className="mt-4 text-sm font-bold text-green-600 dark:text-green-400">
+                      {lang === 'bn' ? 'প্রোফাইল সংরক্ষিত হয়েছে!' : 'Profile saved successfully!'}
+                    </p>
+                  )}
 
-              <div className="flex gap-4 mt-6">
-                <button className="px-6 py-3 bg-green-700 hover:bg-green-800 text-white font-black rounded-2xl shadow-lg transition-all">
-                  {t('save_changes')}
-                </button>
-                <button className="px-6 py-3 bg-zinc-200 dark:bg-zinc-700 hover:bg-zinc-300 dark:hover:bg-zinc-600 text-zinc-900 dark:text-white font-black rounded-2xl transition-all">
-                  {t('cancel')}
-                </button>
-              </div>
+                  <div className="flex gap-4 mt-6">
+                    <button
+                      type="button"
+                      onClick={handleSaveProfile}
+                      disabled={profileSaving}
+                      className="px-6 py-3 bg-green-700 hover:bg-green-800 disabled:bg-zinc-400 text-white font-black rounded-2xl shadow-lg transition-all disabled:cursor-not-allowed"
+                    >
+                      {profileSaving
+                        ? lang === 'bn'
+                          ? 'সংরক্ষণ হচ্ছে...'
+                          : 'Saving...'
+                        : t('save_changes')}
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
           </div>
         );
@@ -563,7 +722,7 @@ const FarmerDashboard: React.FC<FarmerDashboardProps> = ({ userRole, userId, use
           </button>
           <div className="h-10 w-[1px] bg-zinc-300 dark:bg-zinc-800" />
           <div className="flex items-center gap-3 bg-white dark:bg-zinc-800 px-4 py-2 rounded-2xl shadow-sm border border-zinc-200 dark:border-zinc-700">
-            <img src={userProfile?.avatar || "https://picsum.photos/32/32?person=1"} className="rounded-full border border-zinc-200" alt="avatar" />
+            <img src={avatarSrc} className="w-8 h-8 rounded-full border border-zinc-200 object-cover" alt="avatar" />
             <span className="text-sm font-black text-zinc-900 dark:text-zinc-100">{userProfile?.name || 'Farmer'}</span>
           </div>
         </div>

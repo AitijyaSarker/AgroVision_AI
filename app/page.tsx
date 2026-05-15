@@ -109,7 +109,19 @@ export default function Home() {
               }}
             />
           )
-          : <FarmerDashboard userRole={userRole} userId={user?.id} user={user} lang={lang} />;
+          : (
+            <FarmerDashboard
+              userRole={userRole}
+              userId={user?.id || user?._id}
+              user={user}
+              lang={lang}
+              onProfileUpdate={(updates) => {
+                const next = { ...user, ...updates };
+                setUser(next);
+                localStorage.setItem('user', JSON.stringify(next));
+              }}
+            />
+          );
       case 'datasets':
         return <Datasets />;
       case 'about':
