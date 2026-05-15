@@ -1,6 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
+import mongoose from 'mongoose';
 import { connectDB, Message, User } from '@/models';
-import { formatMessage } from '@/lib/messages';
+import {
+  conversationIdMatchesUser,
+  formatMessage,
+  getOtherUserIdFromConversation,
+  normalizeUserId,
+} from '@/lib/messages';
 
 type RouteContext = { params: Promise<{ userId: string }> };
 
@@ -8,13 +14,24 @@ export async function GET(_request: NextRequest, context: RouteContext) {
   try {
     await connectDB();
 
-    const { userId } = await context.params;
-    if (!userId) {
-      return NextResponse.json({ error: 'User id required' }, { status: 400 });
+    const { userId: rawUserId } = await context.params;
+    const userId = normalizeUserId(rawUserId);
+
+    if (!userId || !mongoose.Types.ObjectId.isValid(userId)) {
+      return NextResponse.json({ error: 'Invalid user id' }, { status: 400 });
     }
 
+    // Include legacy messages that only have conversationId + senderId (no receiverId)
     const docs = await Message.find({
-      $or: [{ senderId: userId }, { receiverId: userId }],
+      $or: [
+        { senderId: userId },
+        { receiverId: userId },
+        {
+          conversationId: {
+            $regex: new RegExp(`(^|_)${userId}(_|$)`),
+          },
+        },
+      ],
     })
       .sort({ createdAt: 1 })
       .lean();
@@ -40,7 +57,13 @@ export async function GET(_request: NextRequest, context: RouteContext) {
 
     for (const msg of messages) {
       const otherUserId =
-        msg.senderId === userId ? msg.receiverId : msg.senderId;
+        normalizeUserId(msg.senderId) === userId
+          ? normalizeUserId(msg.receiverId) ||
+            getOtherUserIdFromConversation(msg.conversationId, userId)
+          : normalizeUserId(msg.senderId);
+
+      if (!otherUserId) continue;
+
       otherUserIds.add(otherUserId);
 
       const existing = conversationMap.get(msg.conversationId);
@@ -52,27 +75,31 @@ export async function GET(_request: NextRequest, context: RouteContext) {
           otherUserId,
           lastMessage: msg.text,
           timestamp: msg.timestamp,
-          unreadCount: !msg.read && msg.senderId !== userId ? 1 : 0,
+          unreadCount: !msg.read && normalizeUserId(msg.senderId) !== userId ? 1 : 0,
           messages: [msg],
         });
       } else {
         existing.messages.push(msg);
         existing.lastMessage = msg.text;
         existing.timestamp = msg.timestamp;
-        if (!msg.read && msg.senderId !== userId) {
+        if (!msg.read && normalizeUserId(msg.senderId) !== userId) {
           existing.unreadCount += 1;
         }
       }
     }
 
+    const validOtherIds = Array.from(otherUserIds).filter((id) =>
+      mongoose.Types.ObjectId.isValid(id)
+    );
+
     const users = await User.find({
-      _id: { $in: Array.from(otherUserIds) },
+      _id: { $in: validOtherIds },
     }).lean();
 
     type UserSummary = { name: string; role: string; avatar: string };
     const userById = new Map<string, UserSummary>(
       users.map((u) => [
-        String(u._id),
+        normalizeUserId(u._id),
         {
           name: String(u.name),
           role: String(u.role),
@@ -85,9 +112,10 @@ export async function GET(_request: NextRequest, context: RouteContext) {
     const currentRole = (currentUser?.role as string) || 'farmer';
 
     const conversations = Array.from(conversationMap.values())
+      .filter((conv) => conversationIdMatchesUser(conv.id, userId))
       .map((conv) => {
         const other = userById.get(conv.otherUserId);
-        const displayName = other?.name || 'User';
+        const displayName = other?.name || (currentRole === 'specialist' ? 'Farmer' : 'User');
         const displayImage =
           other?.avatar ||
           `https://picsum.photos/100/100?q=${conv.otherUserId}`;
@@ -101,17 +129,17 @@ export async function GET(_request: NextRequest, context: RouteContext) {
           ...conv,
           farmerId,
           specialistId,
-          farmerName: currentRole === 'specialist' ? displayName : displayName,
+          farmerName: displayName,
           farmerImage: displayImage,
           otherUserName: displayName,
           otherUserImage: displayImage,
           messages: conv.messages.map((m) => ({
             id: m.id,
             senderId: m.senderId,
-            senderName: m.senderId === userId ? 'You' : displayName,
+            senderName: normalizeUserId(m.senderId) === userId ? 'You' : displayName,
             text: m.text,
             timestamp: m.timestamp,
-            isFromFarmer: m.senderId === farmerId,
+            isFromFarmer: normalizeUserId(m.senderId) === farmerId,
           })),
         };
       })

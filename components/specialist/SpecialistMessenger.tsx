@@ -1,6 +1,6 @@
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { Search, Send, CheckCheck, MessageSquare } from 'lucide-react';
+import { Search, Send, CheckCheck, MessageSquare, RefreshCw } from 'lucide-react';
 import { Language, Conversation, Message } from '../../types';
 import { dbService } from '../../mongodb';
 
@@ -15,12 +15,14 @@ export const SpecialistMessenger: React.FC<SpecialistMessengerProps> = ({ lang, 
   const [replyText, setReplyText] = useState('');
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  const loadConversations = useCallback(async () => {
+  const loadConversations = useCallback(async (silent = false) => {
     if (!userId) return;
 
-    setLoading(true);
+    if (!silent) setLoading(true);
+    setLoadError(null);
     const { data, error } = await dbService.getConversations(userId);
 
     if (data && !error) {
@@ -36,12 +38,15 @@ export const SpecialistMessenger: React.FC<SpecialistMessengerProps> = ({ lang, 
     } else {
       setConversations([]);
       setSelectedConv(null);
+      if (error) setLoadError(error);
     }
     setLoading(false);
   }, [userId]);
 
   useEffect(() => {
-    loadConversations();
+    loadConversations(false);
+    const interval = setInterval(() => loadConversations(true), 8000);
+    return () => clearInterval(interval);
   }, [loadConversations]);
 
   useEffect(() => {
@@ -111,7 +116,20 @@ export const SpecialistMessenger: React.FC<SpecialistMessengerProps> = ({ lang, 
     <div className="bg-white dark:bg-zinc-900 rounded-[2.5rem] border border-zinc-100 dark:border-zinc-800 shadow-2xl overflow-hidden flex h-[650px] animate-in slide-in-from-right-8 duration-500">
       <div className="w-1/3 border-r border-zinc-100 dark:border-zinc-800 flex flex-col">
         <div className="p-6 border-b border-zinc-100 dark:border-zinc-800">
-          <h2 className="text-xl font-black mb-4">{lang === 'bn' ? 'কৃষকদের বার্তা' : 'Farmer Inquiries'}</h2>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-black">{lang === 'bn' ? 'কৃষকদের বার্তা' : 'Farmer Inquiries'}</h2>
+            <button
+              type="button"
+              onClick={() => loadConversations(true)}
+              className="p-2 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-500 hover:text-green-600"
+              title={lang === 'bn' ? 'রিফ্রেশ' : 'Refresh'}
+            >
+              <RefreshCw className="w-4 h-4" />
+            </button>
+          </div>
+          {loadError && (
+            <p className="text-xs font-bold text-red-600 dark:text-red-400 mb-3">{loadError}</p>
+          )}
           <div className="relative group">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400 group-focus-within:text-green-600 transition-colors" />
             <input

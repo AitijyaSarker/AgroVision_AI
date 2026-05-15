@@ -99,7 +99,7 @@ export default function Home() {
         return userRole === 'specialist'
           ? (
             <SpecialistDashboard
-              userId={user?.id}
+              userId={user?.id || user?._id}
               user={user}
               lang={lang}
               onProfileUpdate={(updates) => {

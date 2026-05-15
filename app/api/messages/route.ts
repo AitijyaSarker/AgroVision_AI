@@ -1,15 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import mongoose from 'mongoose';
 import { connectDB, Message, User } from '@/models';
-import { buildConversationId, formatMessage } from '@/lib/messages';
+import { buildConversationId, formatMessage, normalizeUserId } from '@/lib/messages';
 
 export async function POST(request: NextRequest) {
   try {
     await connectDB();
 
     const body = await request.json();
-    const senderId = String(body.senderId || '').trim();
-    const receiverId = String(body.receiverId || '').trim();
+    const senderId = normalizeUserId(body.senderId);
+    const receiverId = normalizeUserId(body.receiverId);
     const text = String(body.content || body.text || '').trim();
 
     if (!senderId || !receiverId || !text) {
