@@ -1,15 +1,15 @@
 import mongoose from 'mongoose';
 
-// CRITICAL: For Vercel, MONGODB_URI is required. For local dev, use fallback.
-const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/agrovision';
+// Set MONGODB_URI in .env.local (MongoDB Atlas connection string)
+const MONGODB_URI = process.env.MONGODB_URI?.trim() || '';
 
 let isConnected = false;
 
 export const connectDB = async () => {
-  // Check on Vercel only
-  const isVercel = !!process.env.VERCEL_URL;
-  if (isVercel && !process.env.MONGODB_URI) {
-    throw new Error('🔴 CRITICAL: MONGODB_URI environment variable is not defined on Vercel. Check Vercel environment variables.');
+  if (!MONGODB_URI) {
+    throw new Error(
+      'MONGODB_URI is not set. Add your MongoDB Atlas connection string to .env.local and restart the dev server.'
+    );
   }
 
   // Prevent multiple connections

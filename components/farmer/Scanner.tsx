@@ -2,7 +2,6 @@ import React, { useState, useRef } from 'react';
 import { Camera, Upload, RefreshCcw, CheckCircle2, AlertCircle, Sparkles } from 'lucide-react';
 import { Language, DiseaseDetectionResult } from '../../types';
 import { translations } from '../../translations';
-import { detectCropDisease } from '../../geminiService';
 import { dbService } from '../../mongodb';
 
 interface ScannerProps {
@@ -10,63 +9,108 @@ interface ScannerProps {
   userId?: string;
 }
 
+async function analyzeViaApi(file: Blob, lang: Language): Promise<DiseaseDetectionResult & { source?: string }> {
+  const formData = new FormData();
+  formData.append('file', file, 'crop.jpg');
+  formData.append('language', lang);
+
+  const res = await fetch('/api/predict', { method: 'POST', body: formData });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || 'Analysis failed');
+  }
+
+  const data = await res.json();
+
+  if (data.cropName && data.diseaseName) {
+    return {
+      cropName: data.cropName,
+      diseaseName: data.diseaseName,
+      confidence: data.confidence > 1 ? data.confidence / 100 : data.confidence,
+      description: data.description || data.solution || '',
+      solution: Array.isArray(data.solution) ? data.solution : [String(data.solution || '')],
+      prevention: Array.isArray(data.prevention) ? data.prevention : [],
+      source: data.source,
+    };
+  }
+
+  const conf = typeof data.confidence === 'number'
+    ? (data.confidence > 1 ? data.confidence / 100 : data.confidence)
+    : 0.7;
+
+  return {
+    cropName: data.crop || 'Rice',
+    diseaseName: data.disease || 'Unknown',
+    confidence: conf,
+    description: typeof data.solution === 'string' ? data.solution : '',
+    solution: [typeof data.solution === 'string' ? data.solution : 'Consult a specialist.'],
+    prevention: [],
+    source: data.source,
+  };
+}
+
 export const Scanner: React.FC<ScannerProps> = ({ lang, userId }) => {
   const [image, setImage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<DiseaseDetectionResult | null>(null);
+  const [source, setSource] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const t = (key: string) => translations[key]?.[lang] || key;
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const base64 = reader.result as string;
-        setImage(base64);
-        processImage(base64.split(',')[1]);
-      };
-      reader.readAsDataURL(file);
-    }
-  };
-
-  const processImage = async (base64: string) => {
+  const runAnalysis = async (file: Blob) => {
     setLoading(true);
     setResult(null);
     setError(null);
+    setSource(null);
+
     try {
-      const detection = await detectCropDisease(base64, lang);
+      const detection = await analyzeViaApi(file, lang);
       setResult(detection);
-      
+      setSource(detection.source || null);
+
       if (userId) {
         await dbService.saveScan({
           userId,
           cropName: detection.cropName || 'Unknown',
           diseaseName: detection.diseaseName || 'Unknown',
           confidence: detection.confidence || 0,
-          resultJson: detection
+          resultJson: detection,
         });
       }
-    } catch (err) {
-      setError(lang === 'bn' ? 'ছবি বিশ্লেষণে ত্রুটি হয়েছে' : 'Error analyzing image');
+    } catch {
+      setError(lang === 'bn' ? 'ছবি বিশ্লেষণে ত্রুটি হয়েছে' : 'Error analyzing image');
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setImage(reader.result as string);
+      runAnalysis(file);
+    };
+    reader.readAsDataURL(file);
   };
 
   const reset = () => {
     setImage(null);
     setResult(null);
     setError(null);
+    setSource(null);
+    if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
   return (
     <div className="w-full max-w-4xl mx-auto px-4 py-8">
       {!image ? (
         <div className="grid md:grid-cols-2 gap-6">
-          <div 
+          <div
             onClick={() => fileInputRef.current?.click()}
             className="group cursor-pointer aspect-square bg-white dark:bg-zinc-800 rounded-3xl border-4 border-dashed border-zinc-300 dark:border-zinc-700 flex flex-col items-center justify-center gap-4 transition-all hover:border-green-600 hover:bg-green-50 dark:hover:bg-green-900/10"
           >
@@ -79,21 +123,29 @@ export const Scanner: React.FC<ScannerProps> = ({ lang, userId }) => {
             </div>
           </div>
 
-          <div 
-            className="group aspect-square bg-white dark:bg-zinc-800 rounded-3xl border-4 border-dashed border-zinc-300 dark:border-zinc-700 flex flex-col items-center justify-center gap-4 cursor-not-allowed opacity-60"
+          <div
+            onClick={() => fileInputRef.current?.click()}
+            className="group cursor-pointer aspect-square bg-white dark:bg-zinc-800 rounded-3xl border-4 border-dashed border-zinc-300 dark:border-zinc-700 flex flex-col items-center justify-center gap-4 transition-all hover:border-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/10"
           >
-            <div className="p-6 bg-blue-100 dark:bg-blue-900/30 rounded-full">
+            <div className="p-6 bg-blue-100 dark:bg-blue-900/30 rounded-full group-hover:scale-110 transition-transform">
               <Camera className="w-12 h-12 text-blue-700 dark:text-blue-500" />
             </div>
             <div className="text-center">
-              <p className="text-xl font-black text-zinc-900 dark:text-white">{lang === 'bn' ? 'ক্যামেরা (শীঘ্রই আসছে)' : 'Camera (Coming Soon)'}</p>
-              <p className="text-zinc-700 dark:text-zinc-500 text-sm font-bold">{lang === 'bn' ? 'সরাসরি ছবি তুলুন' : 'Take a photo directly'}</p>
+              <p className="text-xl font-black text-zinc-900 dark:text-white">{lang === 'bn' ? 'ক্যামেরা / গ্যালারি' : 'Camera / Gallery'}</p>
+              <p className="text-zinc-700 dark:text-zinc-500 text-sm font-bold">{lang === 'bn' ? 'পাতার ছবি তুলুন' : 'Take a leaf photo'}</p>
             </div>
           </div>
-          <input type="file" hidden ref={fileInputRef} onChange={handleFileUpload} accept="image/*" />
+          <input type="file" hidden ref={fileInputRef} onChange={handleFileUpload} accept="image/*" capture="environment" />
         </div>
       ) : (
         <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+          {source && (
+            <p className="text-xs font-bold text-green-700 dark:text-green-400 text-center">
+              {source === 'gemini-vision'
+                ? (lang === 'bn' ? '✓ Gemini AI দ্বারা বিশ্লেষণ' : '✓ Analyzed with Gemini AI')
+                : (lang === 'bn' ? '○ ব্যাকআপ বিশ্লেষণ মোড' : '○ Backup analysis mode')}
+            </p>
+          )}
           <div className="grid md:grid-cols-2 gap-8">
             <div className="relative rounded-3xl overflow-hidden shadow-2xl aspect-square border-4 border-white dark:border-zinc-800">
               <img src={image} className="w-full h-full object-cover" alt="Selected leaf" />
@@ -140,23 +192,25 @@ export const Scanner: React.FC<ScannerProps> = ({ lang, userId }) => {
                       </ul>
                     </div>
 
-                    <div>
-                      <h4 className="flex items-center gap-2 font-black text-zinc-800 dark:text-zinc-300 mb-2">
-                        <AlertCircle className="w-5 h-5" />
-                        {t('prevention')}
-                      </h4>
-                      <ul className="grid gap-2">
-                        {result.prevention.map((item, i) => (
-                          <li key={i} className="text-sm font-bold text-zinc-700 dark:text-zinc-500 flex gap-2">
-                            <span className="text-zinc-500 font-black">•</span>
-                            {item}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
+                    {result.prevention.length > 0 && (
+                      <div>
+                        <h4 className="flex items-center gap-2 font-black text-zinc-800 dark:text-zinc-300 mb-2">
+                          <AlertCircle className="w-5 h-5" />
+                          {t('prevention')}
+                        </h4>
+                        <ul className="grid gap-2">
+                          {result.prevention.map((item, i) => (
+                            <li key={i} className="text-sm font-bold text-zinc-700 dark:text-zinc-500 flex gap-2">
+                              <span className="text-zinc-500 font-black">•</span>
+                              {item}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
                   </div>
 
-                  <button 
+                  <button
                     onClick={reset}
                     className="w-full py-4 mt-4 bg-zinc-100 dark:bg-zinc-700 hover:bg-zinc-200 dark:hover:bg-zinc-600 text-zinc-900 dark:text-white font-black rounded-xl flex items-center justify-center gap-2 transition-all shadow-md"
                   >
@@ -174,10 +228,10 @@ export const Scanner: React.FC<ScannerProps> = ({ lang, userId }) => {
                 </div>
               ) : (
                 <div className="p-8 bg-white dark:bg-zinc-800 rounded-3xl border border-zinc-200 dark:border-zinc-700 h-full flex flex-col items-center justify-center text-center gap-4">
-                   <div className="w-16 h-16 bg-zinc-100 dark:bg-zinc-900 rounded-full flex items-center justify-center animate-pulse">
-                      <Sparkles className="w-8 h-8 text-zinc-400 dark:text-zinc-500" />
-                   </div>
-                   <p className="text-zinc-700 dark:text-zinc-500 font-bold">{lang === 'bn' ? 'AI ফলাফলের জন্য অপেক্ষা করুন' : 'Waiting for AI results...'}</p>
+                  <div className="w-16 h-16 bg-zinc-100 dark:bg-zinc-900 rounded-full flex items-center justify-center animate-pulse">
+                    <Sparkles className="w-8 h-8 text-zinc-400 dark:text-zinc-500" />
+                  </div>
+                  <p className="text-zinc-700 dark:text-zinc-500 font-bold">{lang === 'bn' ? 'AI ফলাফলের জন্য অপেক্ষা করুন' : 'Waiting for AI results...'}</p>
                 </div>
               )}
             </div>
@@ -187,3 +241,4 @@ export const Scanner: React.FC<ScannerProps> = ({ lang, userId }) => {
     </div>
   );
 };
+

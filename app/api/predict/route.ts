@@ -1,14 +1,34 @@
 import { NextRequest, NextResponse } from 'next/server'
 import sharp from 'sharp'
 import { analyzeImageBuffer } from '@/lib/crop-analysis'
+import { detectDiseaseWithGemini } from '@/lib/gemini-vision'
 
 export const runtime = 'nodejs'
+
+function mapHeuristicResult(
+  result: ReturnType<typeof analyzeImageBuffer>,
+  language: string
+) {
+  const isBn = language === 'bn'
+  const conf = result.confidence > 1 ? result.confidence / 100 : result.confidence
+  return {
+    cropName: result.crop,
+    diseaseName: result.disease,
+    confidence: conf,
+    description: result.solution,
+    solution: [result.solution],
+    prevention: [
+      isBn ? 'নিয়মিত পর্যবেক্ষণ চালিয়ে যান।' : 'Continue regular field monitoring.',
+    ],
+    source: 'local-analysis' as const,
+  }
+}
 
 export async function POST(request: NextRequest) {
   try {
     const formData = await request.formData()
     const file = formData.get('file')
-    const language = (formData.get('language') as string) || 'en'
+    const language = (formData.get('language') as string) === 'bn' ? 'bn' : 'en'
 
     if (!file || !(file instanceof Blob)) {
       return NextResponse.json({ error: 'No image file provided' }, { status: 400 })
@@ -19,25 +39,18 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Empty file' }, { status: 400 })
     }
 
-    const aiServerUrl = process.env.AI_SERVER_URL || process.env.NEXT_PUBLIC_AI_SERVER_URL
+    const mimeType = file.type || 'image/jpeg'
 
-    if (aiServerUrl) {
-      try {
-        const proxyForm = new FormData()
-        proxyForm.append('file', new Blob([buffer], { type: file.type || 'image/jpeg' }), 'crop.jpg')
-
-        const res = await fetch(
-          `${aiServerUrl}/predict?language=${encodeURIComponent(language)}`,
-          { method: 'POST', body: proxyForm }
-        )
-
-        if (res.ok) {
-          const data = await res.json()
-          return NextResponse.json({ ...data, source: 'ai-server' })
-        }
-      } catch {
-        // fall through to local analysis
-      }
+    const geminiResult = await detectDiseaseWithGemini(buffer, mimeType, language)
+    if (geminiResult) {
+      return NextResponse.json({
+        ...geminiResult,
+        crop: geminiResult.cropName,
+        disease: geminiResult.diseaseName,
+        confidence: Math.round(geminiResult.confidence * 1000) / 10,
+        solution: geminiResult.solution.join(' '),
+        source: 'gemini-vision',
+      })
     }
 
     const { data, info } = await sharp(buffer)
@@ -47,13 +60,18 @@ export async function POST(request: NextRequest) {
       .raw()
       .toBuffer({ resolveWithObject: true })
 
-    const result = analyzeImageBuffer(data, info.width, info.height, language)
-    return NextResponse.json({ ...result, source: 'local-analysis' })
+    const heuristic = analyzeImageBuffer(data, info.width, info.height, language)
+    const mapped = mapHeuristicResult(heuristic, language)
+
+    return NextResponse.json({
+      ...mapped,
+      crop: mapped.cropName,
+      disease: mapped.diseaseName,
+      confidence: Math.round(mapped.confidence * 1000) / 10,
+      solution: mapped.solution[0],
+    })
   } catch (error) {
     console.error('Predict API error:', error)
-    return NextResponse.json(
-      { error: 'Failed to analyze image' },
-      { status: 500 }
-    )
+    return NextResponse.json({ error: 'Failed to analyze image' }, { status: 500 })
   }
 }

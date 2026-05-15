@@ -3,8 +3,7 @@ import { Search, MessageSquare, MapPin, Users, Bell, LayoutDashboard, RefreshCw,
 import dynamic from 'next/dynamic';
 import { dbService } from '../../mongodb';
 import { Specialist, Message, Language } from '../../types';
-import { Scanner } from '../Scanner';
-import { getChatResponse } from '../../geminiService';
+import { Scanner } from './Scanner';
 import { translations } from '../../translations';
 
 // Dynamically import MapComponent to prevent SSR issues
@@ -109,11 +108,39 @@ const FarmerDashboard: React.FC<FarmerDashboardProps> = ({ userRole, userId, use
     setChatLoading(true);
 
     try {
-      // Pass the full conversation history for context
-      const response = await getChatResponse(chatMessages, userMessage, lang);
-      setChatMessages(prev => [...prev, { role: 'assistant', content: response }]);
-    } catch (error) {
-      setChatMessages(prev => [...prev, { role: 'assistant', content: 'Sorry, I\'m having trouble responding right now. Please try again.' }]);
+      const history = chatMessages.map((m) => ({
+        role: m.role,
+        content: m.content,
+      }));
+
+      const res = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: userMessage,
+          language: lang,
+          history: [...history, { role: 'user', content: userMessage }].slice(-10),
+        }),
+      });
+
+      if (!res.ok) throw new Error('Chat failed');
+
+      const data = await res.json();
+      setChatMessages((prev) => [
+        ...prev,
+        { role: 'assistant', content: data.response || 'No response.' },
+      ]);
+    } catch {
+      setChatMessages((prev) => [
+        ...prev,
+        {
+          role: 'assistant',
+          content:
+            lang === 'bn'
+              ? 'সংযোগ সমস্যা। GEMINI_API_KEY যাচাই করুন এবং সার্ভার রিস্টার্ট করুন।'
+              : 'Connection issue. Check GEMINI_API_KEY and restart the server.',
+        },
+      ]);
     } finally {
       setChatLoading(false);
     }
@@ -122,7 +149,7 @@ const FarmerDashboard: React.FC<FarmerDashboardProps> = ({ userRole, userId, use
   const renderContent = () => {
     switch (activeTab) {
       case 'scan':
-        return <Scanner />;
+        return <Scanner lang={lang} userId={userId} />;
       case 'chat':
         return (
           <div className="space-y-6">
