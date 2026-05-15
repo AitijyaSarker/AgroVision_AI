@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Search, MessageSquare, MapPin, Users, Bell, LayoutDashboard, RefreshCw, Send } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import { dbService } from '../../mongodb';
-import { Specialist, Message, Language } from '../../types';
+import { Specialist, Conversation, Language } from '../../types';
 import { Scanner } from './Scanner';
 import { translations } from '../../translations';
 
@@ -33,7 +33,8 @@ const FarmerDashboard: React.FC<FarmerDashboardProps> = ({ userRole, userId, use
   const [consulting, setConsulting] = useState<Specialist | null>(null);
   const [messageText, setMessageText] = useState('');
   const [sentSuccess, setSentSuccess] = useState(false);
-  const [conversations, setConversations] = useState<Message[]>([]);
+  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [selectedMessageConv, setSelectedMessageConv] = useState<Conversation | null>(null);
   const [userProfile, setUserProfile] = useState<any>(null);
   const [chatMessages, setChatMessages] = useState<{role: 'user' | 'assistant', content: string}[]>([]);
   const [chatInput, setChatInput] = useState('');
@@ -61,13 +62,18 @@ const FarmerDashboard: React.FC<FarmerDashboardProps> = ({ userRole, userId, use
   const loadSpecialists = async () => {
     const { data, error } = await dbService.getSpecialists();
     if (!error && data) {
-      setSpecialists(data);
+      setSpecialists(
+        data.map((s: Specialist & { _id?: string }) => ({
+          ...s,
+          id: s.id || (s._id ? String(s._id) : ''),
+        }))
+      );
     }
   };
 
   const loadConversations = async () => {
     if (!userId) return;
-    const { data, error } = await dbService.getMessages(userId);
+    const { data, error } = await dbService.getConversations(userId);
     if (!error && data) {
       setConversations(data);
     }
@@ -82,14 +88,18 @@ const FarmerDashboard: React.FC<FarmerDashboardProps> = ({ userRole, userId, use
   const handleSendMessage = async () => {
     if (!consulting || !messageText.trim() || !userId) return;
 
+    const specialistId = consulting.id || (consulting as Specialist & { _id?: string })._id;
+    if (!specialistId) return;
+
     const { error } = await dbService.sendMessage({
       fromUserId: userId,
-      toUserId: consulting.id,
-      text: messageText,
+      toUserId: String(specialistId),
+      text: messageText.trim(),
       timestamp: new Date(),
     });
 
     if (!error) {
+      await loadConversations();
       setSentSuccess(true);
       setTimeout(() => {
         setSentSuccess(false);
@@ -309,20 +319,52 @@ const FarmerDashboard: React.FC<FarmerDashboardProps> = ({ userRole, userId, use
             </div>
 
             <div className="space-y-4">
-              {conversations.length > 0 ? conversations.map(message => (
-                <div key={message.id} className="bg-white dark:bg-zinc-800 p-6 rounded-3xl shadow-lg border border-zinc-200 dark:border-zinc-700">
+              {conversations.length > 0 ? conversations.map((conv) => (
+                <div
+                  key={conv.id}
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => setSelectedMessageConv(selectedMessageConv?.id === conv.id ? null : conv)}
+                  onKeyDown={(e) => e.key === 'Enter' && setSelectedMessageConv(selectedMessageConv?.id === conv.id ? null : conv)}
+                  className="bg-white dark:bg-zinc-800 p-6 rounded-3xl shadow-lg border border-zinc-200 dark:border-zinc-700 cursor-pointer"
+                >
                   <div className="flex items-start gap-4">
-                     <img src={message.senderId === userId ? "https://picsum.photos/40/40?person=1" : "https://picsum.photos/40/40?person=2"} className="w-10 h-10 rounded-full border border-zinc-200" alt="avatar" />
+                    <img
+                      src={conv.otherUserImage || conv.farmerImage}
+                      className="w-10 h-10 rounded-full border border-zinc-200 object-cover"
+                      alt={conv.otherUserName || conv.farmerName}
+                    />
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-2">
                         <span className="font-bold text-zinc-900 dark:text-white">
-                          {message.senderId === userId ? 'You' : 'Specialist'}
+                          {conv.otherUserName || conv.farmerName}
                         </span>
                         <span className="text-xs text-zinc-500 dark:text-zinc-400">
-                          {new Date(message.timestamp).toLocaleDateString()}
+                          {new Date(conv.timestamp).toLocaleDateString()}
                         </span>
                       </div>
-                      <p className="text-zinc-700 dark:text-zinc-300 font-bold">{message.text}</p>
+                      <p className="text-zinc-700 dark:text-zinc-300 font-bold">{conv.lastMessage}</p>
+
+                      {selectedMessageConv?.id === conv.id && (
+                        <div className="mt-4 pt-4 border-t border-zinc-200 dark:border-zinc-700 space-y-3 max-h-64 overflow-y-auto">
+                          {conv.messages.map((msg) => (
+                            <div
+                              key={msg.id}
+                              className={`flex ${msg.senderId === userId ? 'justify-end' : 'justify-start'}`}
+                            >
+                              <p
+                                className={`text-sm font-bold p-3 rounded-2xl max-w-md ${
+                                  msg.senderId === userId
+                                    ? 'bg-green-600 text-white'
+                                    : 'bg-zinc-50 dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300'
+                                }`}
+                              >
+                                {msg.text}
+                              </p>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>

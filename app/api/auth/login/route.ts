@@ -49,11 +49,12 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       token,
       user: {
-        id: user._id,
+        id: String(user._id),
         name: user.name,
         email: user.email,
-        role: user.role
-      }
+        role: user.role,
+        avatar: user.avatar || '',
+      },
     });
 
   } catch (error: any) {

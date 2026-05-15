@@ -144,7 +144,7 @@ export const dbService = {
   getMessages: async (userId: string) => {
     try {
       const data = await apiService.getMessages(userId);
-      return { data, error: null };
+      return { data: data.messages || data, error: null };
     } catch (error: any) {
       console.error('Error getting messages:', error);
       return { data: null, error: error.message };
@@ -153,40 +153,34 @@ export const dbService = {
 
   getConversations: async (userId: string) => {
     try {
-      const messages = await apiService.getMessages(userId);
-
-      // Group messages by conversation
-      const conversationsMap = new Map();
-
-      for (const message of messages) {
-        const conversationId = [message.senderId, message.receiverId].sort().join('-');
-        const otherUserId = message.senderId === userId ? message.receiverId : message.senderId;
-
-        if (!conversationsMap.has(conversationId)) {
-          conversationsMap.set(conversationId, {
-            id: conversationId,
-            farmerId: message.senderId === userId ? userId : otherUserId,
-            specialistId: message.senderId === userId ? otherUserId : userId,
-            lastMessage: message.content,
-            timestamp: message.timestamp,
-            unreadCount: !message.read && message.senderId !== userId ? 1 : 0,
-            messages: []
-          });
-        }
-
-        conversationsMap.get(conversationId).messages.push({
-          id: message.id,
-          senderId: message.senderId,
-          text: message.content,
-          timestamp: message.timestamp,
-          isFromFarmer: message.senderId !== userId
-        });
-      }
-
-      const conversations = Array.from(conversationsMap.values());
-      return { data: conversations, error: null };
+      const data = await apiService.getMessages(userId);
+      return { data: data.conversations || [], error: null };
     } catch (error: any) {
       console.error('Error getting conversations:', error);
+      return { data: null, error: error.message };
+    }
+  },
+
+  getConversationMessages: async (conversationId: string, userId: string) => {
+    try {
+      const raw = await apiService.getConversationMessages(conversationId);
+      const messages = (raw || []).map((msg: {
+        id: string;
+        senderId: string;
+        text?: string;
+        content?: string;
+        timestamp: string | Date;
+      }) => ({
+        id: msg.id,
+        senderId: msg.senderId,
+        senderName: msg.senderId === userId ? 'You' : 'User',
+        text: msg.text || msg.content || '',
+        timestamp: new Date(msg.timestamp),
+        isFromFarmer: false,
+      }));
+      return { data: messages, error: null };
+    } catch (error: any) {
+      console.error('Error getting conversation messages:', error);
       return { data: null, error: error.message };
     }
   },

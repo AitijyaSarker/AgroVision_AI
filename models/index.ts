@@ -54,10 +54,12 @@ const userSchema = new mongoose.Schema({
 
 // Message Schema
 const messageSchema = new mongoose.Schema({
-  conversationId: { type: String, required: true },
-  senderId: { type: String, required: true },
+  conversationId: { type: String, required: true, index: true },
+  senderId: { type: String, required: true, index: true },
+  receiverId: { type: String, required: true, index: true },
   text: { type: String, required: true },
-  createdAt: { type: Date, default: Date.now }
+  read: { type: Boolean, default: false },
+  createdAt: { type: Date, default: Date.now },
 });
 
 // Scan Schema
