@@ -12,8 +12,8 @@ export const About: React.FC = () => {
     { name: 'Aitijya Sarker', role: 'Development Leader', inst: 'Metropolitan University', img: '/aitijya.png' },
     { name: 'Jubayer Rahman Chowdhury', role: 'Data Researcher and Model Trainer', inst: 'Metropolitan University', img: '/Jubayer.jpg' },
     { name: 'Anidro Paul', role: 'UI/UX Designer', inst: 'Metropolitan University', img: '/Anidro.jpg' },
-    { name: 'Sandid Haque Chowdhury', role: 'Marketing Executive', inst: 'Metropolitan University', img: '/sandid.png' },
-    { name: 'Amanur Rahman Aman', role: 'Marketing Executive', inst: 'Metropolitan University', img: '/aman.png' },
+    { name: 'Sandid Haque Chowdhury', role: 'Product Analyst', inst: 'Metropolitan University', img: '/sandid.png' },
+    { name: 'Amanur Rahman Aman', role: 'Product Analyst', inst: 'Metropolitan University', img: '/aman.png' },
   ];
 
   return (
