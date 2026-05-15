@@ -6,9 +6,17 @@ export interface ChatMessage {
 }
 
 const SYSTEM_PROMPT = `You are AgroVision, an expert agricultural assistant for farmers in Bangladesh.
-Help with crop diseases (especially rice), treatments, prevention, and when to visit an agri office.
-Reply in the user's language (English or Bengali/Bangla).
-Be practical, concise, and safe. Recommend consulting a specialist for severe or uncertain cases.`
+Help with crop diseases (especially rice), treatments, prevention, fertilizers, and when to visit an agri office.
+Always reply in the same language the farmer uses (English or Bengali/Bangla).
+Be practical, warm, and concise (under 150 words unless they ask for detail).
+Recommend consulting a local agricultural officer for severe or unclear cases.`
+
+const GEMINI_MODELS = [
+  'gemini-2.5-flash',
+  'gemini-2.0-flash-lite',
+  'gemini-2.0-flash',
+  'gemini-flash-latest',
+]
 
 function ruleBasedReply(message: string, language: string): string {
   const lower = message.toLowerCase()
@@ -31,8 +39,8 @@ function ruleBasedReply(message: string, language: string): string {
     },
     {
       keys: ['fungicide', 'ফাঙ্গিসাইড', 'medicine', 'ওষুধ'],
-      en: 'Choose fungicides based on the diagnosed disease. Follow label dosage, wear protection, and spray in calm weather. Rotate active ingredients to prevent resistance.',
-      bn: 'রোগ অনুযায়ী ফাঙ্গিসাইড বেছে নিন। লেবেলের মাত্রা মেনে চলুন, সুরক্ষা ব্যবহার করুন এবং শান্ত আবহাওয়ায় স্প্রে করুন। প্রতিরোধ এড়াতে বিভিন্ন ধরনের ওষুধ ব্যবহার করুন।',
+      en: 'Choose fungicides based on the diagnosed disease. Follow label dosage, wear protection, and spray in calm weather.',
+      bn: 'রোগ অনুযায়ী ফাঙ্গিসাইড বেছে নিন। লেবেলের মাত্রা মেনে চলুন, সুরক্ষা ব্যবহার করুন এবং শান্ত আবহাওয়ায় স্প্রে করুন।',
     },
     {
       keys: ['rice', 'ধান', 'paddy'],
@@ -41,13 +49,13 @@ function ruleBasedReply(message: string, language: string): string {
     },
     {
       keys: ['office', 'অফিস', 'nearest', 'location', 'কোথায়'],
-      en: 'Use the "Find Nearest Agri Office" tab in your dashboard. Allow location access for accurate distance, or search manually on the map.',
-      bn: 'ড্যাশবোর্ডে "নিকটতম কৃষি অফিস" ট্যাব ব্যবহার করুন। সঠিক দূরত্বের জন্য লোকেশন অনুমতি দিন, অথবা মানচিত্রে অফিস খুঁজুন।',
+      en: 'Use the "Find Nearest Agri Office" tab in your dashboard. Allow location access for accurate distance.',
+      bn: 'ড্যাশবোর্ডে "নিকটতম কৃষি অফিস" ট্যাব ব্যবহার করুন। সঠিক দূরত্বের জন্য লোকেশন অনুমতি দিন।',
     },
     {
       keys: ['hello', 'hi', 'হ্যালো', 'নমস্কার', 'help', 'সাহায্য'],
-      en: 'Hello! I can help with crop diseases, treatments, and farming advice. Describe your crop problem or upload a photo in the scanner tab.',
-      bn: 'নমস্কার! আমি ফসলের রোগ, চিকিৎসা ও কৃষি পরামর্শে সাহায্য করতে পারি। সমস্যা বর্ণনা করুন অথবা স্ক্যানারে ছবি আপলোড করুন।',
+      en: 'Hello! I can help with crop diseases, treatments, and farming advice. What crop problem are you facing?',
+      bn: 'নমস্কার! আমি ফসলের রোগ, চিকিৎসা ও কৃষি পরামর্শে সাহায্য করতে পারি। আপনার সমস্যা কী?',
     },
   ]
 
@@ -58,44 +66,101 @@ function ruleBasedReply(message: string, language: string): string {
   }
 
   return language === 'bn'
-    ? 'আপনার প্রশ্নের জন্য ধন্যবাদ। রোগের নাম, লক্ষণ বা ছবির বিবরণ দিলে আরও সঠিক পরামর্শ দিতে পারব। গুরুতর ক্ষেত্রে নিকটস্থ কৃষি অফিসে যোগাযোগ করুন।'
-    : 'Thanks for your question. Share the disease name, symptoms, or upload a crop photo in the scanner for better advice. For severe cases, contact your nearest agricultural office.'
+    ? 'আপনার প্রশ্নের জন্য ধন্যবাদ। রোগের নাম বা লক্ষণ বললে আরও সঠিক পরামর্শ দিতে পারব। গুরুতর ক্ষেত্রে কৃষি অফিসে যোগাযোগ করুন।'
+    : 'Thanks for your question. Describe the disease or symptoms for better advice. For severe cases, contact your nearest agricultural office.'
+}
+
+/** Strip current turn and leading assistant-only messages for Gemini history. */
+function normalizeHistory(history: ChatMessage[], currentMessage: string): ChatMessage[] {
+  let h = [...history]
+
+  const last = h[h.length - 1]
+  if (last?.role === 'user' && last.content.trim() === currentMessage.trim()) {
+    h = h.slice(0, -1)
+  }
+
+  while (h.length > 0 && h[0].role !== 'user') {
+    h = h.slice(1)
+  }
+
+  return h.slice(-8)
+}
+
+function formatHistoryForPrompt(history: ChatMessage[]): string {
+  if (history.length === 0) return ''
+  return (
+    '\n\nPrevious conversation:\n' +
+    history
+      .map((m) => `${m.role === 'user' ? 'Farmer' : 'AgroVision'}: ${m.content}`)
+      .join('\n')
+  )
+}
+
+async function tryGeminiModel(
+  apiKey: string,
+  modelName: string,
+  message: string,
+  language: string,
+  history: ChatMessage[]
+): Promise<string | null> {
+  const genAI = new GoogleGenerativeAI(apiKey)
+  const model = genAI.getGenerativeModel({
+    model: modelName,
+    systemInstruction: SYSTEM_PROMPT,
+  })
+
+  const langLine =
+    language === 'bn'
+      ? 'Respond in Bengali (Bangla) only.'
+      : 'Respond in English only.'
+
+  const prompt = `${langLine}${formatHistoryForPrompt(history)}
+
+Farmer: ${message}
+
+AgroVision:`
+
+  const result = await model.generateContent({
+    contents: [{ role: 'user', parts: [{ text: prompt }] }],
+    generationConfig: {
+      temperature: 0.7,
+      maxOutputTokens: 768,
+    },
+  })
+
+  const text = result.response.text()
+  return text?.trim() || null
 }
 
 async function geminiReply(
   message: string,
   language: string,
   history: ChatMessage[]
-): Promise<string | null> {
-  const apiKey = process.env.GEMINI_API_KEY
-  if (!apiKey) return null
-
-  try {
-    const genAI = new GoogleGenerativeAI(apiKey)
-    const model = genAI.getGenerativeModel({
-      model: 'gemini-1.5-flash',
-      systemInstruction: SYSTEM_PROMPT,
-    })
-
-    const chat = model.startChat({
-      history: history.slice(-8).map((m) => ({
-        role: m.role === 'user' ? 'user' : 'model',
-        parts: [{ text: m.content }],
-      })),
-      generationConfig: { temperature: 0.7, maxOutputTokens: 512 },
-    })
-
-    const langHint =
-      language === 'bn'
-        ? ' (উত্তর বাংলায় দিন)'
-        : ' (reply in English)'
-
-    const result = await chat.sendMessage(message + langHint)
-    const text = result.response.text()
-    return text?.trim() || null
-  } catch {
-    return null
+): Promise<{ text: string | null; error?: string }> {
+  const apiKey = process.env.GEMINI_API_KEY?.trim()
+  if (!apiKey) {
+    return { text: null, error: 'GEMINI_API_KEY not configured' }
   }
+
+  const prior = normalizeHistory(history, message)
+  const preferred = process.env.GEMINI_MODEL?.trim()
+  const models = preferred ? [preferred, ...GEMINI_MODELS.filter((m) => m !== preferred)] : GEMINI_MODELS
+
+  let lastError = ''
+
+  for (const modelName of models) {
+    try {
+      const text = await tryGeminiModel(apiKey, modelName, message, language, prior)
+      if (text) {
+        return { text }
+      }
+    } catch (err) {
+      lastError = err instanceof Error ? err.message : String(err)
+      console.error(`Gemini model ${modelName} failed:`, lastError)
+    }
+  }
+
+  return { text: null, error: lastError || 'All Gemini models failed' }
 }
 
 async function aiServerReply(
@@ -130,9 +195,13 @@ export async function generateChatResponse(
   language: string,
   history: ChatMessage[] = []
 ): Promise<{ response: string; source: 'gemini' | 'rules' | 'ai-server' }> {
-  const gemini = await geminiReply(message, language, history)
+  const { text: gemini, error: geminiError } = await geminiReply(message, language, history)
   if (gemini) {
     return { response: gemini, source: 'gemini' }
+  }
+
+  if (geminiError) {
+    console.warn('Gemini unavailable, using fallback:', geminiError)
   }
 
   const fromServer = await aiServerReply(message, language, history)

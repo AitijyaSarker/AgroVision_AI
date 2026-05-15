@@ -59,10 +59,29 @@ export default function AIChatbot() {
       }
 
       const data = await response.json()
+
+      if (!data.response) {
+        throw new Error('Empty response')
+      }
+
       setMessages((prev) => [
         ...prev,
         { role: 'assistant', content: data.response },
       ])
+
+      if (data.source === 'gemini') {
+        toast.success(
+          language === 'bn' ? 'AI উত্তর প্রস্তুত' : 'AI response ready',
+          { id: 'chat-ai' }
+        )
+      } else if (data.source === 'rules') {
+        toast(
+          language === 'bn'
+            ? 'সীমিত মোড — Gemini সংযোগ চেক করুন'
+            : 'Limited mode — check Gemini API key',
+          { icon: '⚠️' }
+        )
+      }
     } catch {
       const fallback =
         language === 'bn'
