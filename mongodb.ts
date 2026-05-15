@@ -1,44 +1,9 @@
 import { apiService } from './apiService';
 
-// Mock specialists data (fallback when API is not available)
-const mockSpecialists = [
-  {
-    id: 'specialist1',
-    name: 'Dr. Mohammad Rahman',
-    institution: 'Bangladesh Agricultural University',
-    department: 'Plant Pathology',
-    location: 'Mymensingh',
-    image: 'https://picsum.photos/100/100?q=specialist1',
-    online: true
-  },
-  {
-    id: 'specialist2',
-    name: 'Dr. Fatima Begum',
-    institution: 'Bangladesh Rice Research Institute',
-    department: 'Agronomy',
-    location: 'Gazipur',
-    image: 'https://picsum.photos/100/100?q=specialist2',
-    online: false
-  },
-  {
-    id: 'specialist3',
-    name: 'Dr. Abdul Karim',
-    institution: 'Soil Resource Development Institute',
-    department: 'Soil Science',
-    location: 'Dhaka',
-    image: 'https://picsum.photos/100/100?q=specialist3',
-    online: true
-  },
-  {
-    id: 'specialist4',
-    name: 'Dr. Nasrin Akter',
-    institution: 'Horticulture Research Center',
-    department: 'Horticulture',
-    location: 'Joydebpur',
-    image: 'https://picsum.photos/100/100?q=specialist4',
-    online: true
-  }
-];
+/** Real MongoDB user ids are 24-char hex strings. */
+export function isValidMongoId(id: string): boolean {
+  return /^[a-f\d]{24}$/i.test(String(id || '').trim());
+}
 
 export const dbService = {
   // Initialize database connection (now just sets up API service)
@@ -103,21 +68,22 @@ export const dbService = {
     }
   },
 
-  // Specialists operations
+  // Specialists operations — only registered users from MongoDB (no mock fallback)
   getSpecialists: async () => {
     try {
       const data = await apiService.getSpecialists();
-      return { data, error: null };
-    } catch (error: any) {
-      console.error('Error getting specialists, using mock data:', error);
-      // Fallback to mock data if API is not available
-      const specialists = mockSpecialists.map(spec => ({
-        ...spec,
-        _id: spec.id,
-        createdAt: new Date(),
-        updatedAt: new Date()
-      }));
+      const list = Array.isArray(data) ? data : [];
+      const specialists = list
+        .map((s: { id?: string; _id?: string }) => ({
+          ...s,
+          id: String(s.id || s._id || '').trim(),
+        }))
+        .filter((s: { id: string }) => isValidMongoId(s.id));
       return { data: specialists, error: null };
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Failed to load specialists';
+      console.error('Error getting specialists:', message);
+      return { data: [], error: message };
     }
   },
 

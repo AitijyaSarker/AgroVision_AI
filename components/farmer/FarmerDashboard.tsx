@@ -30,8 +30,12 @@ const FarmerDashboard: React.FC<FarmerDashboardProps> = ({ userRole, userId, use
   const t = (key: string) => translations[key]?.[lang] || key;
   const [activeTab, setActiveTab] = useState<'scan' | 'chat' | 'offices' | 'specialists' | 'messages' | 'profile'>('scan');
   const [specialists, setSpecialists] = useState<Specialist[]>([]);
+  const [specialistsLoading, setSpecialistsLoading] = useState(false);
+  const [specialistsError, setSpecialistsError] = useState<string | null>(null);
   const [consulting, setConsulting] = useState<Specialist | null>(null);
   const [messageText, setMessageText] = useState('');
+  const [sendError, setSendError] = useState<string | null>(null);
+  const [sendingMessage, setSendingMessage] = useState(false);
   const [sentSuccess, setSentSuccess] = useState(false);
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [selectedMessageConv, setSelectedMessageConv] = useState<Conversation | null>(null);
@@ -60,15 +64,16 @@ const FarmerDashboard: React.FC<FarmerDashboardProps> = ({ userRole, userId, use
   }, [userId]);
 
   const loadSpecialists = async () => {
+    setSpecialistsLoading(true);
+    setSpecialistsError(null);
     const { data, error } = await dbService.getSpecialists();
-    if (!error && data) {
-      setSpecialists(
-        data.map((s: Specialist & { _id?: string }) => ({
-          ...s,
-          id: s.id || (s._id ? String(s._id) : ''),
-        }))
-      );
+    if (error) {
+      setSpecialists([]);
+      setSpecialistsError(error);
+    } else {
+      setSpecialists(data || []);
     }
+    setSpecialistsLoading(false);
   };
 
   const loadConversations = async () => {
@@ -82,31 +87,46 @@ const FarmerDashboard: React.FC<FarmerDashboardProps> = ({ userRole, userId, use
   const handleConsult = (specialist: Specialist) => {
     setConsulting(specialist);
     setSentSuccess(false);
+    setSendError(null);
     setMessageText('');
   };
 
   const handleSendMessage = async () => {
-    if (!consulting || !messageText.trim() || !userId) return;
+    if (!consulting || !messageText.trim() || !userId || sendingMessage) return;
 
-    const specialistId = consulting.id || (consulting as Specialist & { _id?: string })._id;
-    if (!specialistId) return;
+    const specialistId = String(consulting.id || '').trim();
+    if (!specialistId) {
+      setSendError(lang === 'bn' ? 'বিশেষজ্ঞ আইডি পাওয়া যায়নি' : 'Specialist id missing');
+      return;
+    }
+
+    setSendingMessage(true);
+    setSendError(null);
 
     const { error } = await dbService.sendMessage({
       fromUserId: userId,
-      toUserId: String(specialistId),
+      toUserId: specialistId,
       text: messageText.trim(),
       timestamp: new Date(),
     });
 
-    if (!error) {
-      await loadConversations();
-      setSentSuccess(true);
-      setTimeout(() => {
-        setSentSuccess(false);
-        setConsulting(null);
-        setMessageText('');
-      }, 2000);
+    setSendingMessage(false);
+
+    if (error) {
+      setSendError(
+        error ||
+          (lang === 'bn' ? 'বার্তা পাঠাতে ব্যর্থ' : 'Failed to send message')
+      );
+      return;
     }
+
+    await loadConversations();
+    setSentSuccess(true);
+    setTimeout(() => {
+      setSentSuccess(false);
+      setConsulting(null);
+      setMessageText('');
+    }, 2000);
   };
 
   const handleChatSubmit = async () => {
@@ -271,8 +291,18 @@ const FarmerDashboard: React.FC<FarmerDashboardProps> = ({ userRole, userId, use
               </button>
             </div>
 
+            {specialistsError && (
+              <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-2xl text-red-700 dark:text-red-300 text-sm font-bold">
+                {specialistsError}
+              </div>
+            )}
+
             <div className="grid md:grid-cols-3 gap-6">
-              {specialists.length > 0 ? specialists.map(s => (
+              {specialistsLoading ? (
+                <div className="col-span-3 flex justify-center py-12">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600" />
+                </div>
+              ) : specialists.length > 0 ? specialists.map(s => (
                 <div key={s.id} className="bg-white dark:bg-zinc-800 p-6 rounded-3xl shadow-lg border border-zinc-200 dark:border-zinc-700 hover:shadow-xl transition-all group">
                   <div className="relative mb-4">
                     <img src={s.image} className="w-20 h-20 rounded-2xl object-cover" alt={s.name} />
@@ -492,15 +522,24 @@ const FarmerDashboard: React.FC<FarmerDashboardProps> = ({ userRole, userId, use
                     value={messageText}
                     onChange={(e) => setMessageText(e.target.value)}
                     rows={5}
+                    disabled={sendingMessage}
                     className="w-full p-4 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 text-zinc-900 dark:text-white font-bold rounded-2xl outline-none focus:ring-2 ring-green-600"
                     placeholder={t('problem_placeholder')}
                   />
+                  {sendError && (
+                    <p className="text-sm font-bold text-red-600 dark:text-red-400">{sendError}</p>
+                  )}
                   <button
                     onClick={handleSendMessage}
-                    className="w-full py-4 bg-green-700 text-white font-black rounded-2xl shadow-lg flex items-center justify-center gap-2"
+                    disabled={sendingMessage || !messageText.trim()}
+                    className="w-full py-4 bg-green-700 hover:bg-green-800 disabled:bg-zinc-400 text-white font-black rounded-2xl shadow-lg flex items-center justify-center gap-2 disabled:cursor-not-allowed"
                   >
                     <Send className="w-5 h-5" />
-                    {t('send_message')}
+                    {sendingMessage
+                      ? lang === 'bn'
+                        ? 'পাঠানো হচ্ছে...'
+                        : 'Sending...'
+                      : t('send_message')}
                   </button>
                 </div>
               )}

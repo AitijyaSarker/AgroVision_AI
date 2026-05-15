@@ -5,7 +5,9 @@ export async function GET() {
   try {
     await connectDB();
 
-    const specialists = await User.find({ role: 'specialist' })
+    const specialists = await User.find({
+      role: { $regex: /^specialist$/i },
+    })
       .select('name email avatar location role')
       .sort({ createdAt: -1 })
       .lean();

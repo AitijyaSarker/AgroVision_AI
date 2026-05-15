@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { connectDB, Message } from '@/models';
+import mongoose from 'mongoose';
+import { connectDB, Message, User } from '@/models';
 import { buildConversationId, formatMessage } from '@/lib/messages';
 
 export async function POST(request: NextRequest) {
@@ -22,6 +23,28 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { error: 'Cannot message yourself' },
         { status: 400 }
+      );
+    }
+
+    if (
+      !mongoose.Types.ObjectId.isValid(senderId) ||
+      !mongoose.Types.ObjectId.isValid(receiverId)
+    ) {
+      return NextResponse.json(
+        { error: 'Invalid sender or receiver id' },
+        { status: 400 }
+      );
+    }
+
+    const [sender, receiver] = await Promise.all([
+      User.findById(senderId).select('role name').lean(),
+      User.findById(receiverId).select('role name').lean(),
+    ]);
+
+    if (!sender || !receiver) {
+      return NextResponse.json(
+        { error: 'Sender or receiver not found' },
+        { status: 404 }
       );
     }
 

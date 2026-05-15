@@ -32,12 +32,15 @@ export async function POST(request: NextRequest) {
     const hashedPassword = await bcrypt.hash(password, 10);
 
     // Create new user
+    const normalizedRole =
+      String(role || 'farmer').toLowerCase() === 'specialist' ? 'specialist' : 'farmer';
+
     const user = new User({
-      email,
-      name,
+      email: email.trim().toLowerCase(),
+      name: name.trim(),
       password: hashedPassword,
-      role: role || 'farmer',
-      location
+      role: normalizedRole,
+      location,
     });
 
     await user.save();
