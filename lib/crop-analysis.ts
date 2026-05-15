@@ -8,6 +8,7 @@ export interface DetectionResult {
   disease: string
   confidence: number
   solution: string
+  description: string
 }
 
 const SOLUTIONS_EN: Record<string, string> = {
@@ -163,12 +164,15 @@ export function analyzeImageBuffer(
   const isBn = language === 'bn'
   const roundedConfidence = Math.round(Math.min(97, Math.max(52, confidence)) * 10) / 10
 
+  const solutionText = isBn
+    ? SOLUTIONS_BN[disease] ?? 'একজন কৃষি বিশেষজ্ঞের পরামর্শ নিন।'
+    : SOLUTIONS_EN[disease] ?? 'Consult an agricultural specialist.'
+
   return {
     crop: isBn ? 'ধান' : 'Rice',
     disease: isBn ? DISEASE_BN[disease] ?? disease : disease,
     confidence: roundedConfidence,
-    solution: isBn
-      ? SOLUTIONS_BN[disease] ?? 'একজন কৃষি বিশেষজ্ঞের পরামর্শ নিন।'
-      : SOLUTIONS_EN[disease] ?? 'Consult an agricultural specialist.',
+    solution: solutionText,
+    description: solutionText,
   }
 }

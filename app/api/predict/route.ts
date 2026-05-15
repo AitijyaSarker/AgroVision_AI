@@ -15,7 +15,7 @@ function mapHeuristicResult(
     cropName: result.crop,
     diseaseName: result.disease,
     confidence: conf,
-    description: result.solution,
+    description: result.description || result.solution,
     solution: [result.solution],
     prevention: [
       isBn ? 'নিয়মিত পর্যবেক্ষণ চালিয়ে যান।' : 'Continue regular field monitoring.',
