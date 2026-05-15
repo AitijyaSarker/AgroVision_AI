@@ -1,6 +1,7 @@
 
 import React from 'react';
-import { Sun, Moon, Languages, Leaf, UserCircle } from 'lucide-react';
+import { Sun, Moon, Languages, UserCircle } from 'lucide-react';
+import { AppLogo } from './AppLogo';
 import { Language, UserRole } from '../../types';
 import { translations } from '../../translations';
 
@@ -34,12 +35,11 @@ export const Navbar: React.FC<NavbarProps> = ({
           className="flex items-center gap-2 cursor-pointer group"
           onClick={() => onPageChange('home')}
         >
-          <div className="p-2 bg-green-100 dark:bg-green-900/30 rounded-lg group-hover:rotate-12 transition-transform">
-            <Leaf className="w-6 h-6 text-green-700 dark:text-green-500" />
-          </div>
-          <span className="text-xl font-black bg-gradient-to-r from-green-700 to-emerald-600 bg-clip-text text-transparent">
-            {t('app_title')}
-          </span>
+          <AppLogo
+            className="h-14 w-auto max-w-[180px] object-contain group-hover:scale-105 transition-transform"
+            alt={t('app_title')}
+            priority
+          />
         </div>
 
         <div className="hidden md:flex items-center gap-6">

@@ -1,6 +1,7 @@
 
 import React from 'react';
-import { Sun, Moon, Languages, Leaf, UserCircle } from 'lucide-react';
+import { Sun, Moon, Languages, UserCircle } from 'lucide-react';
+import { AppLogo } from './common/AppLogo';
 import { Language, UserRole } from '../types';
 import { translations } from '../translations';
 
@@ -26,12 +27,11 @@ export const Navbar: React.FC<NavbarProps> = ({
           className="flex items-center gap-2 cursor-pointer group"
           onClick={() => setCurrentPage('home')}
         >
-          <div className="p-2 bg-green-100 dark:bg-green-900/30 rounded-lg group-hover:rotate-12 transition-transform">
-            <Leaf className="w-6 h-6 text-green-600" />
-          </div>
-          <span className="text-xl font-bold bg-gradient-to-r from-green-600 to-emerald-500 bg-clip-text text-transparent">
-            Agro Vision
-          </span>
+          <AppLogo
+            className="h-14 w-auto max-w-[180px] object-contain group-hover:scale-105 transition-transform"
+            alt="AgroVision"
+            priority
+          />
         </div>
 
         <div className="hidden md:flex items-center gap-6">

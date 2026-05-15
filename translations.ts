@@ -111,7 +111,7 @@ export const translations: TranslationStrings = {
   about_support: { en: 'Support', bn: 'সাপোর্ট' },
   about_users: { en: 'Users', bn: 'ইউজার' },
   about_awards: { en: 'Awards', bn: 'এওয়ার্ড' },
-  about_team_title: { en: 'Team Neural Nodes', bn: 'টিম নিউরাল নোডস' },
+  about_team_title: { en: 'Team AgroVision', bn: 'টিম এগ্রো ভিশন' },
 
   // Datasets Section
   datasets_title: { en: 'AI Datasets', bn: 'এআই ডেটাসেট' },

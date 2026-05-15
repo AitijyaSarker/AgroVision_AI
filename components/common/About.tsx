@@ -2,15 +2,18 @@
 import React from 'react';
 import { Shield, Target, Award, Rocket } from 'lucide-react';
 import { useTranslation } from '../../src/hooks/useTranslation';
-import { Language } from '../../types';
 
 export const About: React.FC = () => {
   const { t, lang } = useTranslation();
+
+  const marketingRole = lang === 'bn' ? 'মার্কেটিং এক্সিকিউটিভ' : 'Marketing Executive';
 
   const team = [
     { name: 'Aitijya Sarker', role: 'Development Leader', inst: 'Metropolitan University', img: '/aitijya.png' },
     { name: 'Jubayer Rahman Chowdhury', role: 'Data Researcher and Model Trainer', inst: 'Metropolitan University', img: '/Jubayer.jpg' },
     { name: 'Anidro Paul', role: 'UI/UX Designer', inst: 'Metropolitan University', img: '/Anidro.jpg' },
+    { name: 'Sandid Haque Chowdhury', role: 'Marketing Executive', inst: 'Metropolitan University', img: '/sandid.png' },
+    { name: 'Amanur Rahman Aman', role: 'Marketing Executive', inst: 'Metropolitan University', img: '/aman.png' },
   ];
 
   return (
@@ -43,7 +46,7 @@ export const About: React.FC = () => {
         <h3 className="text-3xl font-black text-center text-zinc-900 dark:text-white uppercase tracking-tight">
           {t('about_team_title')}
         </h3>
-        <div className="grid md:grid-cols-3 gap-12">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-8 md:gap-12">
           {team.map((m, i) => (
             <div key={i} className="group flex flex-col items-center text-center">
               <div className="relative mb-6">
@@ -52,10 +55,10 @@ export const About: React.FC = () => {
                 
                 {/* Image Container with Glow Hover */}
                 <div className="relative w-48 h-48 md:w-56 md:h-56 rounded-full overflow-hidden border-4 border-zinc-100 dark:border-zinc-800 shadow-xl transition-all duration-500 group-hover:shadow-[0_0_30px_10px_rgba(34,197,94,0.4)] group-hover:scale-105 group-hover:border-green-600">
-                  <img 
-                    src={m.img} 
-                    className="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-700" 
-                    alt={m.name} 
+                  <img
+                    src={m.img}
+                    className="w-full h-full object-cover object-top grayscale group-hover:grayscale-0 transition-all duration-700"
+                    alt={m.name}
                   />
                 </div>
               </div>
@@ -63,7 +66,9 @@ export const About: React.FC = () => {
               <div className="space-y-1">
                 <h4 className="text-2xl font-black text-zinc-900 dark:text-white group-hover:text-green-700 dark:group-hover:text-green-500 transition-colors">{m.name}</h4>
                 <p className="text-green-700 dark:text-green-500 font-black text-sm tracking-wide uppercase">{m.role}</p>
-                <p className="text-zinc-800 dark:text-zinc-500 text-xs font-black">{m.inst}</p>
+                {m.inst ? (
+                  <p className="text-zinc-800 dark:text-zinc-500 text-xs font-black">{m.inst}</p>
+                ) : null}
               </div>
             </div>
           ))}

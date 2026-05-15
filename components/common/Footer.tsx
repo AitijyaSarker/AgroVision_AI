@@ -1,5 +1,6 @@
 import React from 'react';
-import { Leaf, Facebook, Twitter, Linkedin, Instagram, Mail, Phone, MapPin, ExternalLink } from 'lucide-react';
+import { Facebook, Twitter, Linkedin, Instagram, Mail, Phone, MapPin, ExternalLink } from 'lucide-react';
+import { AppLogo } from './AppLogo';
 import { Language } from '../../types';
 import { translations } from '../../translations';
 
@@ -16,16 +17,8 @@ export const Footer: React.FC<FooterProps> = ({ lang }) => {
         {/* Branding & Social */}
         <div className="space-y-8">
           <div className="flex items-center gap-3">
-            <div className="p-2.5 bg-green-700 rounded-xl shadow-lg shadow-green-700/20">
-              <Leaf className="w-6 h-6 text-white" />
-            </div>
-            <span className="text-2xl font-black bg-gradient-to-r from-green-700 to-emerald-600 bg-clip-text text-transparent">
-              Agro Vision
-            </span>
+            <AppLogo className="h-16 w-auto max-w-[200px] object-contain" alt="AgroVision" />
           </div>
-          <p className="text-zinc-700 dark:text-zinc-400 text-sm font-bold leading-relaxed max-w-xs">
-            {t('footer_text')}
-          </p>
           <div className="flex gap-3">
             {[
               { Icon: Facebook, href: '#', color: 'hover:text-blue-600' },
