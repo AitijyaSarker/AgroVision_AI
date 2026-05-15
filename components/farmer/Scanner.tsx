@@ -23,13 +23,20 @@ async function analyzeViaApi(file: Blob, lang: Language): Promise<DiseaseDetecti
   const data = await res.json();
 
   if (data.cropName && data.diseaseName) {
+    const solutionItems = Array.isArray(data.solution)
+      ? data.solution.map(String).filter(Boolean)
+      : String(data.solution || '')
+          .split(/\n+|(?<=[.!?])\s+/)
+          .map((s: string) => s.trim())
+          .filter(Boolean);
+
     return {
       cropName: data.cropName,
       diseaseName: data.diseaseName,
       confidence: data.confidence > 1 ? data.confidence / 100 : data.confidence,
-      description: data.description || data.solution || '',
-      solution: Array.isArray(data.solution) ? data.solution : [String(data.solution || '')],
-      prevention: Array.isArray(data.prevention) ? data.prevention : [],
+      description: data.description || solutionItems.join(' ') || '',
+      solution: solutionItems.length ? solutionItems : [lang === 'bn' ? 'স্থানীয় কৃষি কর্মকর্তার পরামর্শ নিন।' : 'Consult a specialist.'],
+      prevention: Array.isArray(data.prevention) ? data.prevention.map(String) : [],
       source: data.source,
     };
   }

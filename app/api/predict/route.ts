@@ -28,7 +28,8 @@ export async function POST(request: NextRequest) {
   try {
     const formData = await request.formData()
     const file = formData.get('file')
-    const language = (formData.get('language') as string) === 'bn' ? 'bn' : 'en'
+    const langRaw = String(formData.get('language') ?? '').toLowerCase()
+    const language = langRaw === 'bn' || langRaw.startsWith('bn') ? 'bn' : 'en'
 
     if (!file || !(file instanceof Blob)) {
       return NextResponse.json({ error: 'No image file provided' }, { status: 400 })
@@ -44,11 +45,15 @@ export async function POST(request: NextRequest) {
     const geminiResult = await detectDiseaseWithGemini(buffer, mimeType, language)
     if (geminiResult) {
       return NextResponse.json({
-        ...geminiResult,
+        cropName: geminiResult.cropName,
+        diseaseName: geminiResult.diseaseName,
+        confidence: Math.round(geminiResult.confidence * 1000) / 10,
+        description: geminiResult.description,
+        solution: geminiResult.solution,
+        prevention: geminiResult.prevention,
         crop: geminiResult.cropName,
         disease: geminiResult.diseaseName,
-        confidence: Math.round(geminiResult.confidence * 1000) / 10,
-        solution: geminiResult.solution.join(' '),
+        language,
         source: 'gemini-vision',
       })
     }
@@ -64,11 +69,16 @@ export async function POST(request: NextRequest) {
     const mapped = mapHeuristicResult(heuristic, language)
 
     return NextResponse.json({
-      ...mapped,
+      cropName: mapped.cropName,
+      diseaseName: mapped.diseaseName,
+      confidence: Math.round(mapped.confidence * 1000) / 10,
+      description: mapped.description,
+      solution: mapped.solution,
+      prevention: mapped.prevention,
       crop: mapped.cropName,
       disease: mapped.diseaseName,
-      confidence: Math.round(mapped.confidence * 1000) / 10,
-      solution: mapped.solution[0],
+      language,
+      source: mapped.source,
     })
   } catch (error) {
     console.error('Predict API error:', error)
