@@ -39,6 +39,8 @@
     "next-env.d.ts",
     "app/**/*",
     "components/**/*",
+    "lib/**/*",
+    "geminiService.ts",
     ".next/types/**/*.ts",
     ".next/dev/types/**/*.ts"
   ],

@@ -6,7 +6,9 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 
 // Initialize Gemini AI
 const getGeminiAI = () => {
-  const apiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY;
+  const apiKey =
+    process.env.GEMINI_API_KEY ||
+    process.env.NEXT_PUBLIC_GEMINI_API_KEY;
   if (!apiKey || apiKey === 'YOUR_ACTUAL_API_KEY_HERE') {
     return null; // Fallback to mock
   }
@@ -169,7 +171,9 @@ const getMockDiseaseResult = (lang: 'en' | 'bn') => {
 export const getChatResponse = async (history: { role: string, content: string }[], userInput: string, lang: 'en' | 'bn') => {
   try {
     // Check if API key is available
-    const apiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY;
+    const apiKey =
+      process.env.GEMINI_API_KEY ||
+      process.env.NEXT_PUBLIC_GEMINI_API_KEY;
     if (!apiKey || apiKey === 'YOUR_ACTUAL_API_KEY_HERE') {
       // Fallback to enhanced mock responses if API key not configured
       return getEnhancedMockResponse(userInput, lang);
