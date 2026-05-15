@@ -97,7 +97,18 @@ export default function Home() {
         );
       case 'dashboard':
         return userRole === 'specialist'
-          ? <SpecialistDashboard userId={user?.id} lang={lang} />
+          ? (
+            <SpecialistDashboard
+              userId={user?.id}
+              user={user}
+              lang={lang}
+              onProfileUpdate={(updates) => {
+                const next = { ...user, ...updates };
+                setUser(next);
+                localStorage.setItem('user', JSON.stringify(next));
+              }}
+            />
+          )
           : <FarmerDashboard userRole={userRole} userId={user?.id} user={user} lang={lang} />;
       case 'datasets':
         return <Datasets />;
