@@ -1,15 +1,14 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  serverExternalPackages: ['sharp'],
   images: {
     remotePatterns: [
       {
-        protocol: 'http',
-        hostname: 'localhost',
-        port: '',
-        pathname: '**',
+        protocol: 'https',
+        hostname: '**',
       },
     ],
   },
 }
 
-export default nextConfig
+export default nextConfig
