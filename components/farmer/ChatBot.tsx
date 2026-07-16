@@ -2,7 +2,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Send, Bot, User, Loader2, Info } from 'lucide-react';
 import { Language } from '../../types';
-import { getChatResponse } from '../../geminiService';
 import { translations } from '../../translations';
 
 interface ChatBotProps {
@@ -15,7 +14,7 @@ export const ChatBot: React.FC<ChatBotProps> = ({ lang }) => {
   ]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
-  const [apiKeyError, setApiKeyError] = useState(false);
+  const [usingFallback, setUsingFallback] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -27,75 +26,46 @@ export const ChatBot: React.FC<ChatBotProps> = ({ lang }) => {
   const handleSend = async () => {
     if (!input.trim() || loading) return;
 
-    const userMsg = input.trim().toLowerCase();
     const originalMsg = input.trim();
     setInput('');
     setMessages(prev => [...prev, { role: 'user', content: originalMsg }]);
     setLoading(true);
-
-    // Check for demo greetings and common questions
-    const greetings = ['hi', 'hello', 'hey', 'হাই', 'হ্যালো', 'ওহে'];
-    const isGreeting = greetings.some(greeting => userMsg.includes(greeting));
-
-    // Demo responses for common farming questions
-    const demoResponses: { [key: string]: { en: string; bn: string } } = {
-      'rice': {
-        en: 'Rice is Bangladesh\'s staple crop! For healthy rice cultivation, ensure proper water management, use balanced fertilizers (NPK 60:30:30), and watch for diseases like bacterial blight. Would you like specific advice?',
-        bn: 'ধান বাংলাদেশের প্রধান খাদ্যশস্য! সুস্থ ধান চাষের জন্য সঠিক জল ব্যবস্থাপনা, ভারসাম্যপূর্ণ সার (NPK 60:30:30) ব্যবহার করুন এবং ব্যাকটেরিয়াল ব্লাইটের মতো রোগের জন্য সতর্ক থাকুন। বিস্তারিত পরামর্শ চান?'
-      },
-      'disease': {
-        en: 'I can help identify crop diseases! Common ones include: Rice blast, bacterial blight, sheath blight. Please describe the symptoms or upload a photo in the scanner section.',
-        bn: 'আমি ফসলের রোগ শনাক্ত করতে সাহায্য করতে পারি! সাধারণ রোগগুলির মধ্যে রয়েছে: ধান ব্লাস্ট, ব্যাকটেরিয়াল ব্লাইট, শিথ ব্লাইট। অনুগ্রহ করে লক্ষণগুলি বর্ণনা করুন বা স্ক্যানার বিভাগে ছবি আপলোড করুন।'
-      },
-      'fertilizer': {
-        en: 'For optimal crop growth, use balanced NPK fertilizers. Rice needs more nitrogen, while vegetables need more potassium. Soil testing is recommended for best results.',
-        bn: 'ফসলের সর্বোত্তম বৃদ্ধির জন্য ভারসাম্যপূর্ণ NPK সার ব্যবহার করুন। ধানের জন্য বেশি নাইট্রোজেন দরকার, যখন সবজির জন্য বেশি পটাশিয়াম। সর্বোত্তম ফলাফলের জন্য মাটি পরীক্ষা সুপারিশ করা হয়।'
-      },
-      'water': {
-        en: 'Proper irrigation is crucial! Rice needs 5-10 cm standing water, while other crops need soil moisture monitoring. Avoid overwatering to prevent root rot.',
-        bn: 'সঠিক সেচ খুবই গুরুত্বপূর্ণ! ধানের জন্য ৫-১০ সেমি দাঁড়িয়ে থাকা জল দরকার, অন্যান্য ফসলের জন্য মাটির আর্দ্রতা পর্যবেক্ষণ করা দরকার। মূল পচা রোধ করতে অতিরিক্ত জল দেওয়া এড়িয়ে চলুন।'
-      }
-    };
-
-    // Check if user message contains any demo keywords
-    const demoKeyword = Object.keys(demoResponses).find(keyword => userMsg.includes(keyword));
-
-    if (isGreeting) {
-      // Demo response for greetings
-      setTimeout(() => {
-        const demoResponse = lang === 'bn'
-          ? 'হ্যালো! আমি এগ্রো ভিশন এআই, আপনার কৃষি সহায়ক। আমি আপনাকে ফসলের রোগ, সার, এবং কৃষি পরামর্শ দিতে পারি। আপনার কোন প্রশ্ন আছে?'
-          : 'Hello! I am Agro Vision AI, your agriculture assistant. I can help you with crop diseases, fertilizers, and farming advice. Do you have any questions?';
-        setMessages(prev => [...prev, { role: 'bot', content: demoResponse }]);
-        setLoading(false);
-        setApiKeyError(false);
-      }, 1000);
-      return;
-    } else if (demoKeyword) {
-      // Demo response for common farming questions
-      setTimeout(() => {
-        const response = demoResponses[demoKeyword][lang];
-        setMessages(prev => [...prev, { role: 'bot', content: response }]);
-        setLoading(false);
-        setApiKeyError(false);
-      }, 1500);
-      return;
-    }
+    setUsingFallback(false);
 
     try {
-      const history = messages.map(m => ({ role: m.role === 'bot' ? 'assistant' : 'user', content: m.content }));
-      const response = await getChatResponse(history, originalMsg, lang);
-      setMessages(prev => [...prev, { role: 'bot', content: response || (lang === 'bn' ? 'দুঃখিত, আমি উত্তর দিতে পারছি না।' : 'Sorry, I cannot answer that right now.') }]);
-      setApiKeyError(false);
-    } catch (err: any) {
-      console.error('Chat error:', err);
-      const errorMessage = err.message || (lang === 'bn' ? 'সার্ভার ত্রুটি। আবার চেষ্টা করুন।' : 'Server error. Please try again.');
-      setMessages(prev => [...prev, { role: 'bot', content: errorMessage }]);
+      const history = messages.map(m => ({
+        role: m.role === 'bot' ? ('assistant' as const) : ('user' as const),
+        content: m.content,
+      }));
 
-      // Check if it's an API key error
-      if (errorMessage.includes('API কী') || errorMessage.includes('API key')) {
-        setApiKeyError(true);
+      const res = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: originalMsg,
+          language: lang,
+          history: [...history, { role: 'user', content: originalMsg }].slice(-10),
+        }),
+      });
+
+      if (!res.ok) {
+        throw new Error('Chat request failed');
       }
+
+      const data = await res.json();
+      const reply = data.response || (lang === 'bn' ? 'দুঃখিত, উত্তর পাওয়া যায়নি।' : 'Sorry, no response received.');
+
+      setMessages(prev => [...prev, { role: 'bot', content: reply }]);
+      setUsingFallback(data.source === 'rules');
+    } catch (err) {
+      console.error('Chat error:', err);
+      setMessages(prev => [...prev, {
+        role: 'bot',
+        content: lang === 'bn'
+          ? 'সংযোগ সমস্যা। আবার চেষ্টা করুন।'
+          : 'Connection issue. Please try again.',
+      }]);
+      setUsingFallback(true);
     } finally {
       setLoading(false);
     }
@@ -119,30 +89,13 @@ export const ChatBot: React.FC<ChatBotProps> = ({ lang }) => {
         <Info className="w-5 h-5 opacity-50 cursor-help" />
       </div>
 
-      {apiKeyError && (
-        <div className="bg-amber-50 dark:bg-amber-900/20 border-l-4 border-amber-400 p-4 mx-6 rounded-r-lg">
-          <div className="flex items-start gap-3">
-            <Info className="w-5 h-5 text-amber-600 mt-0.5" />
-            <div className="text-sm">
-              <p className="font-medium text-amber-800 dark:text-amber-200 mb-1">
-                {lang === 'bn' ? 'API কী সেটআপ প্রয়োজন' : 'API Key Setup Required'}
-              </p>
-              <p className="text-amber-700 dark:text-amber-300 mb-2">
-                {lang === 'bn'
-                  ? 'ডেমো মোড: "হাই", "ধান", "রোগ", "সার" ইত্যাদি শব্দ দিয়ে চ্যাট করুন। API কী সেট করলে আরও ভালো উত্তর পাবেন।'
-                  : 'Demo Mode: Try chatting with words like "hi", "rice", "disease", "fertilizer". Set API key for better responses.'
-                }
-              </p>
-              <a
-                href="https://aistudio.google.com/app/apikey"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-amber-600 hover:text-amber-700 underline text-xs"
-              >
-                {lang === 'bn' ? 'API কী পান' : 'Get API Key'}
-              </a>
-            </div>
-          </div>
+      {usingFallback && (
+        <div className="bg-amber-50 dark:bg-amber-900/20 border-l-4 border-amber-400 p-4 mx-6 mt-4 rounded-r-lg">
+          <p className="text-sm text-amber-800 dark:text-amber-200">
+            {lang === 'bn'
+              ? 'সীমিত মোড — GEMINI_API_KEY যাচাই করুন এবং সার্ভার রিস্টার্ট করুন।'
+              : 'Limited mode — verify GEMINI_API_KEY in .env.local and restart the server.'}
+          </p>
         </div>
       )}
 
@@ -181,7 +134,7 @@ export const ChatBot: React.FC<ChatBotProps> = ({ lang }) => {
             type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && handleSend()}
+            onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleSend()}
             placeholder={translations.chat_placeholder[lang]}
             className="flex-1 bg-transparent px-4 py-2 outline-none text-sm"
           />
@@ -197,3 +150,4 @@ export const ChatBot: React.FC<ChatBotProps> = ({ lang }) => {
     </div>
   );
 };
+

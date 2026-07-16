@@ -1,15 +1,15 @@
 import mongoose from 'mongoose';
 
-// CRITICAL: For Vercel, MONGODB_URI is required. For local dev, use fallback.
-const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/agrovision';
+// Set MONGODB_URI in .env.local (MongoDB Atlas connection string)
+const MONGODB_URI = process.env.MONGODB_URI?.trim() || '';
 
 let isConnected = false;
 
 export const connectDB = async () => {
-  // Check on Vercel only
-  const isVercel = !!process.env.VERCEL_URL;
-  if (isVercel && !process.env.MONGODB_URI) {
-    throw new Error('🔴 CRITICAL: MONGODB_URI environment variable is not defined on Vercel. Check Vercel environment variables.');
+  if (!MONGODB_URI) {
+    throw new Error(
+      'MONGODB_URI is not set. Add your MongoDB Atlas connection string to .env.local and restart the dev server.'
+    );
   }
 
   // Prevent multiple connections
@@ -54,10 +54,12 @@ const userSchema = new mongoose.Schema({
 
 // Message Schema
 const messageSchema = new mongoose.Schema({
-  conversationId: { type: String, required: true },
-  senderId: { type: String, required: true },
+  conversationId: { type: String, required: true, index: true },
+  senderId: { type: String, required: true, index: true },
+  receiverId: { type: String, required: true, index: true },
   text: { type: String, required: true },
-  createdAt: { type: Date, default: Date.now }
+  read: { type: Boolean, default: false },
+  createdAt: { type: Date, default: Date.now },
 });
 
 // Scan Schema

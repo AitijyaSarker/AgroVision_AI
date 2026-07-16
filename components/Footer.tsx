@@ -1,6 +1,7 @@
 
 import React from 'react';
-import { Leaf, Facebook, Twitter, Linkedin, Instagram } from 'lucide-react';
+import { Facebook, Twitter, Linkedin, Instagram } from 'lucide-react';
+import { AppLogo } from './common/AppLogo';
 import { Language } from '../types';
 import { translations } from '../translations';
 
@@ -9,13 +10,7 @@ export const Footer: React.FC<{ lang: Language }> = ({ lang }) => {
     <footer className="bg-zinc-50 dark:bg-zinc-900 py-16 px-4 border-t border-zinc-200 dark:border-zinc-800">
       <div className="max-w-7xl mx-auto grid md:grid-cols-4 gap-12">
         <div className="space-y-6">
-          <div className="flex items-center gap-2">
-            <Leaf className="w-6 h-6 text-green-600" />
-            <span className="text-xl font-bold">Agro Vision</span>
-          </div>
-          <p className="text-zinc-500 text-sm leading-relaxed">
-            {translations.footer_text[lang]}
-          </p>
+          <AppLogo className="h-16 w-auto max-w-[200px] object-contain" alt="AgroVision" />
           <div className="flex gap-4">
             {[Facebook, Twitter, Linkedin, Instagram].map((Icon, i) => (
               <a key={i} href="#" className="w-10 h-10 rounded-xl bg-white dark:bg-zinc-800 flex items-center justify-center text-zinc-400 hover:text-green-600 hover:shadow-lg transition-all border border-zinc-100 dark:border-zinc-700">

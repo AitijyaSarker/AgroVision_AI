@@ -39,7 +39,7 @@ export async function POST(request: NextRequest) {
 
     // Generate token
     const token = jwt.sign(
-      { id: user._id, email: user.email },
+      { id: String(user._id), email: user.email },
       process.env.JWT_SECRET || 'your-secret-key',
       { expiresIn: '7d' }
     );
@@ -49,11 +49,12 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       token,
       user: {
-        id: user._id,
+        id: String(user._id),
         name: user.name,
         email: user.email,
-        role: user.role
-      }
+        role: user.role,
+        avatar: user.avatar || '',
+      },
     });
 
   } catch (error: any) {

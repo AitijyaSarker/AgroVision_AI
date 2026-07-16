@@ -42,7 +42,7 @@ export const About: React.FC<{ lang: Language }> = ({ lang }) => {
 
       {/* Team */}
       <div className="space-y-12">
-        <h3 className="text-3xl font-bold text-center">{lang === 'bn' ? 'টিম নিউরাল নোডস' : 'Team Neural Nodes'}</h3>
+        <h3 className="text-3xl font-bold text-center">{lang === 'bn' ? 'টিম এগ্রো ভিশন' : 'Team AgroVision'}</h3>
         <div className="grid md:grid-cols-3 gap-8">
           {team.map((m, i) => (
             <div key={i} className="group relative bg-white dark:bg-zinc-800 rounded-3xl overflow-hidden shadow-xl border border-zinc-100 dark:border-zinc-700 p-2">

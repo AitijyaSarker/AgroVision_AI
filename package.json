@@ -29,9 +29,11 @@
     "next": "^16.1.1",
     "react": "^19.2.3",
     "react-dom": "^19.2.3",
-    "react-leaflet": "^4.2.1"
+    "react-leaflet": "^4.2.1",
+    "sharp": "^0.34.5"
   },
   "devDependencies": {
+    "@types/leaflet": "^1.9.21",
     "@types/node": "^20",
     "@types/react": "^18",
     "@types/react-dom": "^18",

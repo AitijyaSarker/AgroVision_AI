@@ -32,12 +32,15 @@ export async function POST(request: NextRequest) {
     const hashedPassword = await bcrypt.hash(password, 10);
 
     // Create new user
+    const normalizedRole =
+      String(role || 'farmer').toLowerCase() === 'specialist' ? 'specialist' : 'farmer';
+
     const user = new User({
-      email,
-      name,
+      email: email.trim().toLowerCase(),
+      name: name.trim(),
       password: hashedPassword,
-      role: role || 'farmer',
-      location
+      role: normalizedRole,
+      location,
     });
 
     await user.save();
@@ -45,7 +48,7 @@ export async function POST(request: NextRequest) {
 
     // Generate token
     const token = jwt.sign(
-      { id: user._id, email: user.email },
+      { id: String(user._id), email: user.email },
       process.env.JWT_SECRET || 'your-secret-key',
       { expiresIn: '7d' }
     );
@@ -53,11 +56,12 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       token,
       user: {
-        id: user._id,
+        id: String(user._id),
         name: user.name,
         email: user.email,
-        role: user.role
-      }
+        role: user.role,
+        avatar: user.avatar || '',
+      },
     });
 
   } catch (error: any) {

@@ -34,16 +34,22 @@ export default function Home() {
       setLang('bn');
     }
 
-    // Load user from localStorage
+    // Load user from localStorage — set token immediately before any API calls fire
     const savedUser = localStorage.getItem('user');
     if (savedUser) {
-      const userData = JSON.parse(savedUser);
-      setUser(userData);
-      setUserRole(userData.role || 'farmer');
-      if (userData.token) {
-        apiService.setToken(userData.token);
+      try {
+        const userData = JSON.parse(savedUser);
+        // Set token FIRST so any child component API calls are authenticated
+        if (userData.token) {
+          apiService.setToken(userData.token);
+        }
+        setUser(userData);
+        setUserRole(userData.role || 'farmer');
+        setCurrentPage('dashboard');
+      } catch {
+        // Corrupt data — clear it
+        localStorage.removeItem('user');
       }
-      setCurrentPage('dashboard');
     }
   }, []);
 
@@ -53,7 +59,15 @@ export default function Home() {
     }
     setUser(userData);
     setUserRole(userData.role || 'farmer');
-    localStorage.setItem('user', JSON.stringify(userData));
+    localStorage.setItem('user', JSON.stringify({
+      id: userData.id,
+      _id: userData._id || userData.id,
+      email: userData.email,
+      name: userData.name,
+      role: userData.role,
+      avatar: userData.avatar || '',
+      token: userData.token,
+    }));
     setCurrentPage('dashboard');
   };
 
@@ -97,8 +111,31 @@ export default function Home() {
         );
       case 'dashboard':
         return userRole === 'specialist'
-          ? <SpecialistDashboard userId={user?.id} lang={lang} />
-          : <FarmerDashboard userRole={userRole} userId={user?.id} user={user} lang={lang} />;
+          ? (
+            <SpecialistDashboard
+              userId={user?.id || user?._id}
+              user={user}
+              lang={lang}
+              onProfileUpdate={(updates) => {
+                const next = { ...user, ...updates };
+                setUser(next);
+                localStorage.setItem('user', JSON.stringify(next));
+              }}
+            />
+          )
+          : (
+            <FarmerDashboard
+              userRole={userRole}
+              userId={user?.id || user?._id}
+              user={user}
+              lang={lang}
+              onProfileUpdate={(updates) => {
+                const next = { ...user, ...updates };
+                setUser(next);
+                localStorage.setItem('user', JSON.stringify(next));
+              }}
+            />
+          );
       case 'datasets':
         return <Datasets />;
       case 'about':

@@ -48,8 +48,11 @@ export interface Message {
 export interface Conversation {
   id: string;
   farmerId?: string;
+  specialistId?: string;
   farmerName: string;
   farmerImage: string;
+  otherUserName?: string;
+  otherUserImage?: string;
   lastMessage: string;
   timestamp: Date;
   unreadCount: number;

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { dbService } from '../mongodb';
 import { Language } from '../types';
 import { Mail, Lock, LogIn } from 'lucide-react';
+import { AppLogo } from './common/AppLogo';
 import { translations } from '../translations';
 
 interface LoginProps {
@@ -79,6 +80,7 @@ export const Login: React.FC<LoginProps> = ({ lang, onLoginSuccess, onSwitchToRe
   return (
     <div className="max-w-md mx-auto bg-white dark:bg-zinc-800 rounded-2xl p-8 shadow-lg">
       <div className="text-center mb-8">
+        <AppLogo className="h-24 w-auto max-w-[260px] mx-auto mb-4 object-contain" alt="AgroVision" priority />
         <h2 className="text-3xl font-bold text-zinc-900 dark:text-white">
           {lang === 'bn' ? 'লগইন' : 'Login'}
         </h2>

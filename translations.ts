@@ -111,7 +111,7 @@ export const translations: TranslationStrings = {
   about_support: { en: 'Support', bn: 'সাপোর্ট' },
   about_users: { en: 'Users', bn: 'ইউজার' },
   about_awards: { en: 'Awards', bn: 'এওয়ার্ড' },
-  about_team_title: { en: 'Team Neural Nodes', bn: 'টিম নিউরাল নোডস' },
+  about_team_title: { en: 'Team AgroVision', bn: 'টিম এগ্রো ভিশন' },
 
   // Datasets Section
   datasets_title: { en: 'AI Datasets', bn: 'এআই ডেটাসেট' },
@@ -155,4 +155,9 @@ export const translations: TranslationStrings = {
   no: { en: 'No', bn: 'না' },
   ok: { en: 'OK', bn: 'ঠিক আছে' },
   close: { en: 'Close', bn: 'বন্ধ করুন' },
+  you: { en: 'You', bn: 'আপনি' },
+  logout: { en: 'Logout', bn: 'লগআউট' },
+  farmer_label: { en: 'Farmer', bn: 'কৃষক' },
+  specialist_label: { en: 'Specialist', bn: 'বিশেষজ্ঞ' },
 };
+

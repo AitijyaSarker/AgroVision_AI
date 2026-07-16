@@ -88,6 +88,10 @@ class ApiService {
     return this.request(`/api/messages/${userId}`);
   }
 
+  async getConversationMessages(conversationId: string) {
+    return this.request(`/api/messages/conversation/${conversationId}`);
+  }
+
   async sendMessage(message: { senderId: string; receiverId: string; content: string }) {
     return this.request('/api/messages', {
       method: 'POST',
