@@ -53,6 +53,12 @@ export const SpecialistDashboard: React.FC<SpecialistDashboardProps> = ({
       setUserProfile(data);
       setProfileName(data.name || '');
       setProfileAvatar(data.avatar || '');
+    } else if (error && (error.includes('not found') || error.includes('404') || error.includes('Invalid user'))) {
+      // Stale session — user ID no longer exists in MongoDB (e.g. DB was reset).
+      console.warn('[SpecialistDashboard] Stale user ID detected — clearing session:', userId, error);
+      localStorage.removeItem('user');
+      window.location.reload();
+      return;
     } else if (user) {
       setUserProfile({
         id: user.id,

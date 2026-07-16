@@ -77,6 +77,13 @@ const FarmerDashboard: React.FC<FarmerDashboardProps> = ({
       setUserProfile(data);
       setProfileName(data.name || '');
       setProfileAvatar(data.avatar || '');
+    } else if (error && (error.includes('not found') || error.includes('404') || error.includes('Invalid user'))) {
+      // Stale session — user ID no longer exists in MongoDB (e.g. DB was reset).
+      // Clear localStorage and reload so the user is prompted to re-register/login.
+      console.warn('[FarmerDashboard] Stale user ID detected — clearing session:', farmerId, error);
+      localStorage.removeItem('user');
+      window.location.reload();
+      return;
     } else if (user) {
       setUserProfile(user);
       setProfileName(user.name || '');

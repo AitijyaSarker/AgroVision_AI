@@ -155,4 +155,9 @@ export const translations: TranslationStrings = {
   no: { en: 'No', bn: 'না' },
   ok: { en: 'OK', bn: 'ঠিক আছে' },
   close: { en: 'Close', bn: 'বন্ধ করুন' },
+  you: { en: 'You', bn: 'আপনি' },
+  logout: { en: 'Logout', bn: 'লগআউট' },
+  farmer_label: { en: 'Farmer', bn: 'কৃষক' },
+  specialist_label: { en: 'Specialist', bn: 'বিশেষজ্ঞ' },
 };
+

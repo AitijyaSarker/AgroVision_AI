@@ -42,8 +42,15 @@ export async function POST(request: NextRequest) {
     ]);
 
     if (!sender || !receiver) {
+      console.error('[messages] User lookup failed:', {
+        senderId,
+        senderFound: !!sender,
+        receiverId,
+        receiverFound: !!receiver,
+      });
+      const missing = !sender ? `Sender (${senderId})` : `Receiver (${receiverId})`;
       return NextResponse.json(
-        { error: 'Sender or receiver not found' },
+        { error: `${missing} not found` },
         { status: 404 }
       );
     }

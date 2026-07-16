@@ -48,6 +48,9 @@ export async function GET(request: NextRequest, context: RouteContext) {
       return NextResponse.json({ error: 'Invalid user id' }, { status: 400 });
     }
 
+    // Only block if a valid token is present AND belongs to a DIFFERENT user.
+    // If no token is present (e.g., page reload before apiService.setToken runs),
+    // allow the read so the profile loads correctly.
     const tokenUserId = getTokenUserId(request);
     if (tokenUserId && tokenUserId !== userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });

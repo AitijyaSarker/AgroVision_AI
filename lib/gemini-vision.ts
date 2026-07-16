@@ -42,13 +42,21 @@ function toStringArray(value: unknown, fallback: string): string[] {
 
 function buildVisionPrompt(language: 'en' | 'bn'): string {
   if (language === 'bn') {
-    return `Analyze this crop image for Bangladesh agriculture. Reply ONLY with valid JSON (no markdown):
+    return `আপনি বাংলাদেশের একজন বিশেষজ্ঞ কৃষি বিজ্ঞানী। এই ফসলের ছবি বিশ্লেষণ করুন।
+শুধুমাত্র নিচের JSON ফরম্যাটে উত্তর দিন (কোনো markdown বা ব্যাখ্যা নয়):
 {"diseaseName":"","cropName":"","confidence":0.0,"description":"","solution":[],"prevention":[]}
-Rules: confidence 0-1; solution/prevention are string arrays; if healthy use diseaseName "Healthy".`
+
+গুরুত্বপূর্ণ নিয়ম:
+- diseaseName, cropName, description, solution এবং prevention — সবকিছু অবশ্যই বাংলায় (বাংলা হরফে) লিখতে হবে।
+- confidence: ০ থেকে ১ এর মধ্যে দশমিক সংখ্যা।
+- solution এবং prevention: বাংলা ভাষায় স্ট্রিং অ্যারে।
+- ফসল সুস্থ হলে diseaseName = "সুস্থ" ব্যবহার করুন।
+- কোনো ইংরেজি শব্দ ব্যবহার করবেন না।`
   }
-  return `Analyze this crop image for Bangladesh agriculture. Reply ONLY with valid JSON (no markdown):
+  return `You are an expert agricultural scientist for Bangladesh. Analyze this crop image.
+Reply ONLY with valid JSON (no markdown, no explanation):
 {"diseaseName":"","cropName":"","confidence":0.0,"description":"","solution":[],"prevention":[]}
-Rules: confidence 0-1; all text in English; solution/prevention are string arrays; if healthy use diseaseName "Healthy".`
+Rules: confidence 0-1 decimal; all text in English; solution/prevention are string arrays; if healthy use diseaseName "Healthy".`
 }
 
 async function runVisionAnalysis(
@@ -115,18 +123,19 @@ export async function translateScanToBengali(
     prevention: detection.prevention,
   })
 
-  const prompt = `You are a professional Bangla agricultural translator.
+  const prompt = `আপনি একজন পেশাদার বাংলাদেশী কৃষি অনুবাদক। নিচের ফসলের রোগ প্রতিবেদনটি সম্পূর্ণ বাংলায় অনুবাদ করুন।
 
-Translate ALL text in this crop disease report into Bengali (Bangla script only).
-Keep the same JSON keys. Return ONLY valid JSON, no English, no markdown.
+শুধুমাত্র JSON আউটপুট দিন — কোনো ইংরেজি শব্দ, markdown বা ব্যাখ্যা নয়।
 
-Rules:
-- diseaseName, cropName: short Bengali names (e.g. Potato → আলু, Common Scab → সাধারণ স্ক্যাব)
-- description: full Bengali paragraph
-- solution: array of Bengali treatment steps (each item one short tip)
-- prevention: array of Bengali prevention tips
+নিয়মাবলী:
+- diseaseName: বাংলায় রোগের নাম (যেমন: Common Scab → সাধারণ স্ক্যাব, Healthy → সুস্থ)
+- cropName: বাংলায় ফসলের নাম (যেমন: Potato → আলু, Rice → ধান)
+- description: পূর্ণ বাংলা অনুচ্ছেদ, রোগের কারণ ও লক্ষণ সহ
+- solution: প্রতিটি চিকিৎসা পদক্ষেপ আলাদা বাংলা স্ট্রিং হিসেবে অ্যারেতে
+- prevention: প্রতিটি প্রতিরোধ টিপস আলাদা বাংলা স্ট্রিং হিসেবে অ্যারেতে
+- কোনো ইংরেজি শব্দ ব্যবহার করা যাবে না
 
-Input JSON:
+ইনপুট JSON:
 ${payload}`
 
   for (const modelName of MODELS) {
@@ -171,14 +180,19 @@ export async function detectDiseaseWithGemini(
   const genAI = new GoogleGenerativeAI(apiKey)
   const base64 = imageBuffer.toString('base64')
 
-  // Analyze in English first (more reliable), then translate entire result for Bangla UI
-  const visionLang: 'en' | 'bn' = 'en'
-  const detection = await runVisionAnalysis(genAI, base64, mimeType, visionLang)
-  if (!detection) return null
-
+  // For Bengali: first try direct Bengali analysis, then fall back to translate-from-English
   if (language === 'bn') {
-    return translateScanToBengali(detection)
+    // Try direct Bengali analysis
+    const directBn = await runVisionAnalysis(genAI, base64, mimeType, 'bn')
+    if (directBn && !looksEnglish(directBn.description) && !directBn.solution.some(looksEnglish)) {
+      return directBn
+    }
+    // Fall back: analyze in English, then translate
+    const enDetection = await runVisionAnalysis(genAI, base64, mimeType, 'en')
+    if (!enDetection) return directBn || null
+    return translateScanToBengali(enDetection)
   }
 
-  return detection
+  const detection = await runVisionAnalysis(genAI, base64, mimeType, 'en')
+  return detection || null
 }

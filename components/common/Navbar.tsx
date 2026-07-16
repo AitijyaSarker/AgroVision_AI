@@ -28,6 +28,16 @@ export const Navbar: React.FC<NavbarProps> = ({
 }) => {
   const t = (key: string) => translations[key]?.[lang] || key;
 
+  const ROLE_BN: Record<string, string> = {
+    farmer: 'কৃষক',
+    specialist: 'বিশেষজ্ঞ',
+    guest: 'অতিথি',
+  };
+  const roleLabel =
+    lang === 'bn'
+      ? ROLE_BN[userRole] || userRole
+      : userRole.charAt(0).toUpperCase() + userRole.slice(1);
+
   return (
     <nav className="fixed top-0 w-full z-50 bg-white/95 dark:bg-zinc-950/90 backdrop-blur-md border-b border-zinc-200 dark:border-zinc-800 transition-all">
       <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
@@ -64,7 +74,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             className="p-2 rounded-full hover:bg-zinc-100 dark:hover:bg-zinc-800 flex items-center gap-1 transition-all"
           >
             <Languages className="w-5 h-5 text-zinc-900 dark:text-zinc-400" />
-            <span className="text-xs font-black uppercase text-zinc-900 dark:text-zinc-300">{lang}</span>
+            <span className="text-xs font-black uppercase text-zinc-900 dark:text-zinc-300">{lang === 'bn' ? 'বাং' : 'EN'}</span>
           </button>
           
           <button
@@ -101,7 +111,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 className="flex items-center gap-2 p-1.5 pl-3 pr-4 bg-zinc-100 dark:bg-zinc-800 rounded-full hover:bg-green-50 dark:hover:bg-green-900/20 transition-all border border-zinc-200 dark:border-zinc-700"
               >
                 <UserCircle className="w-6 h-6 text-green-700 dark:text-green-500" />
-                <span className="text-sm font-black capitalize text-zinc-900 dark:text-zinc-200">{userRole}</span>
+                <span className="text-sm font-black capitalize text-zinc-900 dark:text-zinc-200">{roleLabel}</span>
               </button>
               <button
                 onClick={onLogout}
