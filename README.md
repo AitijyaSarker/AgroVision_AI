@@ -1,5 +1,6 @@
-# 🌾 AgroVision  
-### AI-Powered Crop Disease Detection Platform
+# AgroVision
+
+### AI-powered crop disease detection and agricultural support
 
 <p align="center">
   <img src="https://img.shields.io/badge/Status-Active-success?style=for-the-badge" />
@@ -9,109 +10,172 @@
 </p>
 
 <p align="center">
-  <b>Empowering farmers with AI-driven insights for smarter agriculture 🌱</b>
+  <b>AI-assisted agricultural support for farmers and specialists in Bangladesh</b>
 </p>
 
 ---
 
-## 📖 Overview
+## Overview
 
-**AgroVision** is an AI-powered agricultural assistant platform designed for **farmers and agricultural specialists in Bangladesh**.
-
-It enables users to:
-- Detect crop diseases instantly  
-- Find nearby agricultural services  
-- Communicate directly with experts  
+AgroVision is a full-stack web application for farmers and agricultural specialists in Bangladesh. It combines image-based crop disease analysis, agricultural guidance, location-aware office discovery, and farmer-specialist messaging in one responsive platform.
 
 ---
 
-## 🚀 Features
+## Core Features
 
-### 🌿 AI Crop Disease Detection
-Upload or capture crop images to instantly identify diseases.
+- **AI crop analysis:** Upload a crop image and receive a disease, confidence score, description, treatment, and prevention guidance.
+- **Resilient analysis flow:** Gemini Vision is used when `GEMINI_API_KEY` is configured; Sharp image processing and local heuristic analysis provide a fallback.
+- **Agricultural assistant:** Ask agriculture-related questions in English or Bengali through the Gemini-backed chat endpoint.
+- **Specialist messaging:** Send and retrieve farmer-specialist conversations stored in MongoDB.
+- **Office finder:** Explore agricultural offices and calculate location-based distances with Leaflet and OpenStreetMap data.
+- **Role-based dashboards:** Farmers and specialists receive purpose-specific dashboard experiences.
+- **Persistent scan history:** Save crop analysis results and retrieve them for the authenticated user.
 
-### 📍 Smart Office Finder
-Locate nearby agricultural offices with accurate distance.
+## Roles and Authentication
 
-### 💬 Real-Time Expert Chat
-Connect directly with agricultural specialists.
+| Role | Capabilities |
+| --- | --- |
+| Farmer | Analyze crop images, review scan history, find agricultural offices, and message specialists |
+| Specialist | Manage a specialist profile and respond to farmer conversations |
+| Guest | Browse public content and access the authentication screens |
 
-### 🌐 Multi-language Support
-- English 🇬🇧  
-- Bengali 🇧🇩  
+Authentication uses JWT bearer tokens. Passwords are hashed with `bcryptjs`, and authenticated API requests send the token through the `Authorization` header.
 
-### 👥 Role-Based Access
-- Farmer dashboard  
-- Specialist dashboard  
+## Architecture
 
-### 📱 Responsive Design
-Works across mobile, tablet, and desktop devices.
+The current application uses Next.js as both the frontend framework and the primary backend runtime:
 
----
+```text
+Browser
+  -> Next.js App Router UI
+  -> Next.js API Route Handlers (/app/api)
+  -> Mongoose models (/models)
+  -> MongoDB Atlas
 
-## 🔐 Authentication
+Crop images and chat requests
+  -> Gemini API when configured
+  -> Local image analysis fallback when Gemini is unavailable
+```
 
-### Required Information
-- Full Name  
-- Email  
-- Password  
-- Role  
+The repository also contains an Express implementation in `api/index.js` and `server.js` for standalone or legacy deployments. The Next.js route handlers and MongoDB models are the main application path used by the current frontend.
 
-### Flow
-1. Sign up  
-2. Email verification (Supabase)  
-3. Login  
-4. Role-based dashboard  
+## Technology Stack
 
----
+### Frontend
 
-## 👨‍🌾 Roles & Permissions
+- Next.js 16 App Router
+- React 19
+- TypeScript
+- Tailwind CSS
+- Leaflet and React Leaflet
+- Lucide React icons
 
-| Role | Access |
-|------|--------|
-| 👨‍🌾 Farmer | Scan crops, find offices, chat |
-| 👨‍🔬 Specialist | Answer queries, guide farmers |
-| 👀 Guest | View only |
+### Backend and Services
 
----
+- Next.js Route Handlers running on Node.js
+- Express.js server implementation for standalone deployment
+- JWT authentication
+- bcryptjs password hashing
+- Sharp image processing
+- Google Generative AI SDK for Gemini Vision and chat
 
-## 🛠️ Tech Stack
+### Data and Infrastructure
 
-### 🚀 Frontend
-<p>
-  <img src="https://img.shields.io/badge/React-20232A?style=for-the-badge&logo=react&logoColor=61DAFB" />
-  <img src="https://img.shields.io/badge/TypeScript-20232A?style=for-the-badge&logo=typescript&logoColor=3178C6" />
-  <img src="https://img.shields.io/badge/TailwindCSS-20232A?style=for-the-badge&logo=tailwind-css&logoColor=38B2AC" />
-  <img src="https://img.shields.io/badge/Vite-20232A?style=for-the-badge&logo=vite&logoColor=646CFF" />
-</p>
+- MongoDB Atlas
+- Mongoose ODM
+- Vercel configuration for the Next.js application
+- Optional Railway, Render, or similar hosting for the standalone Express server
 
-### 🧠 Backend & Services
-<p>
-  <img src="https://img.shields.io/badge/MongoDB-20232A?style=for-the-badge&logo=mongodb&logoColor=47A248" />
-  <img src="https://img.shields.io/badge/PostgreSQL-20232A?style=for-the-badge&logo=postgresql&logoColor=336791" />
-  <img src="https://img.shields.io/badge/Gemini_AI-20232A?style=for-the-badge&logo=google&logoColor=4285F4" />
-  <img src="https://img.shields.io/badge/OpenStreetMap-20232A?style=for-the-badge&logo=openstreetmap&logoColor=7EBC6F" />
-</p>
+## Project Structure
 
-### 🎨 UI & Tools
-<p>
-  <img src="https://img.shields.io/badge/Lucide_Icons-20232A?style=for-the-badge" />
-</p>
+```text
+app/                 Next.js pages, layout, and API route handlers
+components/          Reusable UI and farmer/specialist dashboard components
+lib/                 Chat, crop analysis, mapping, and messaging helpers
+models/              Mongoose connection and database schemas
+public/              Static assets
+api/                 Standalone Express/Vercel API implementation
+apiService.ts        Frontend API client and JWT token handling
+types.ts             Shared TypeScript types
+```
 
----
+## Getting Started
 
-## ⚙️ Setup
+### Prerequisites
+
+- Node.js 20 or newer
+- npm
+- A MongoDB Atlas database, or a local MongoDB instance
+- A Gemini API key for AI-powered analysis and chat (optional; local analysis remains available)
+
+### Installation
 
 ```bash
 git clone https://github.com/AitijyaSarker/MXB2026-Sylhet-Neural-Nodes-AgroVision.git
-cd AgroVision
+cd "Agro Vision"
 npm install
+```
+
+Create `.env.local` in the project root:
+
+```env
+MONGODB_URI=mongodb+srv://<username>:<password>@<cluster>/<database>
+JWT_SECRET=replace-with-a-long-random-secret
+GEMINI_API_KEY=your-gemini-api-key
+```
+
+Start the Next.js development server:
+
+```bash
 npm run dev
 ```
 
+Open `http://localhost:3000` in a browser.
+
+## Available Scripts
+
+| Command | Purpose |
+| --- | --- |
+| `npm run dev` | Start the Next.js development server |
+| `npm run build` | Create a production build |
+| `npm start` | Run the built Next.js application |
+| `npm run lint` | Run the configured Next.js lint command |
+| `npm run server` | Start the standalone Express server |
+| `npm run deploy:check` | Validate deployment environment configuration |
+
 ---
 
-## 📸 Screenshots
+## API Surface
+
+The primary Next.js API endpoints include:
+
+| Method | Endpoint | Purpose |
+| --- | --- | --- |
+| `POST` | `/api/auth/register` | Register a farmer or specialist |
+| `POST` | `/api/auth/login` | Authenticate a user and issue a JWT |
+| `GET` / `PUT` | `/api/users/profile/:userId` | Read or update a profile |
+| `GET` | `/api/specialists` | List available specialists |
+| `POST` | `/api/messages` | Send a message |
+| `GET` | `/api/messages/:userId` | Retrieve a user's messages |
+| `POST` | `/api/predict` | Analyze an uploaded crop image |
+| `POST` | `/api/chat` | Generate an agricultural assistant response |
+| `POST` | `/api/scans` | Save a scan result |
+
+Protected endpoints use a bearer token in the `Authorization` header.
+
+## Deployment
+
+The repository includes `vercel.json` for deploying the Next.js application and its API route handlers to Vercel. Set the following environment variables in the deployment platform:
+
+```env
+MONGODB_URI=mongodb+srv://<username>:<password>@<cluster>/<database>
+JWT_SECRET=replace-with-a-long-random-secret
+GEMINI_API_KEY=your-gemini-api-key
+```
+
+The standalone Express server can be deployed separately to Railway, Render, or another Node.js hosting provider. Never commit `.env`, `.env.local`, database credentials, API keys, or JWT secrets.
+
+## Screenshots
 
 <p align="center">
   <img src="https://github.com/user-attachments/assets/d1599e42-152b-4126-b196-50f0f7cb4dda" width="800" />
@@ -139,39 +203,42 @@ npm run dev
 
 ---
 
-## 🔗 Project Resources
+## Project Resources
 
-### 📂 Project Drive
+### Project Drive
 https://drive.google.com/drive/folders/1-L9Xf2lS2GK6mPM4zxnK8FaT0LmhUOjC
 
-### 🎥 Demo Video
+### Demo Video
 https://youtu.be/ic_0TmDpWyw
 
 ---
 
-## 📌 Future Improvements
+## Roadmap
 
-- Improve AI accuracy  
-- Add analytics dashboard  
-- Offline support  
-- Advanced recommendations  
-
----
-
-## 🤝 Contributing
-
-1. Fork the repository  
-2. Create a feature branch  
-3. Submit a pull request  
+- Improve disease-classification accuracy and evaluation coverage
+- Add analytics for scan history and disease trends
+- Add offline-friendly workflows for low-connectivity areas
+- Expand crop and disease coverage
+- Add richer agricultural recommendations
 
 ---
 
-## 📄 License
+## Contributing
+
+1. Fork the repository.
+2. Create a focused feature branch.
+3. Install dependencies and run the application locally.
+4. Validate the production build with `npm run build`.
+5. Submit a pull request with a clear description of the change.
+
+---
+
+## License
 
 MIT License
 
 ---
 
 <p align="center">
-  Made with 🌾 for smart agriculture
+  Built for smarter agriculture in Bangladesh
 </p>
