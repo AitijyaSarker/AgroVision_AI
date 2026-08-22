@@ -5,7 +5,7 @@
 <p align="center">
   <img src="https://img.shields.io/badge/Status-Active-success?style=for-the-badge" />
   <img src="https://img.shields.io/badge/Version-1.0-blue?style=for-the-badge" />
-  <img src="https://img.shields.io/badge/License-MIT-yellow?style=for-the-badge" />
+  <img src="https://img.shields.io/badge/Project-Private-555555?style=for-the-badge" />
   <img src="https://img.shields.io/badge/Made%20in-Bangladesh-006a4e?style=for-the-badge" />
 </p>
 
@@ -18,6 +18,8 @@
 ## Overview
 
 AgroVision is a full-stack web application for farmers and agricultural specialists in Bangladesh. It combines image-based crop disease analysis, agricultural guidance, location-aware office discovery, and farmer-specialist messaging in one responsive platform.
+
+This is a private personal project owned and maintained by Aitijya Sarker. The repository documentation is prepared for portfolio, demonstration, and authorized technical review.
 
 ---
 
@@ -223,19 +225,9 @@ https://youtu.be/ic_0TmDpWyw
 
 ---
 
-## Contributing
+## Ownership and Usage
 
-1. Fork the repository.
-2. Create a focused feature branch.
-3. Install dependencies and run the application locally.
-4. Validate the production build with `npm run build`.
-5. Submit a pull request with a clear description of the change.
-
----
-
-## License
-
-MIT License
+AgroVision is not an open-source project and is not released under an open-source license. The source code, design, documentation, and project assets are provided for authorized review and demonstration purposes only. Reuse, redistribution, or commercial use requires written permission from the project owner.
 
 ---
 
