@@ -6,11 +6,5 @@
   "outputDirectory": "frontend/.next",
   "env": {
     "NODE_ENV": "production"
-  },
-  "functions": {
-    "backend/api/**/*.js": {
-      "maxDuration": 60,
-      "memory": 1024
-    }
   }
 }
