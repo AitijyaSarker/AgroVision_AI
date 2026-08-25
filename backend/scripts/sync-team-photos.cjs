@@ -2,7 +2,7 @@ const fs = require('fs');
 const path = require('path');
 
 const dist = path.join(__dirname, '..', 'dist');
-const pub = path.join(__dirname, '..', 'public');
+const pub = path.join(__dirname, '..', '..', 'frontend', 'public');
 
 if (!fs.existsSync(dist)) {
   console.log('No dist folder — skip sync.');

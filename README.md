@@ -49,9 +49,9 @@ The current application uses Next.js as both the frontend framework and the prim
 
 ```text
 Browser
-  -> Next.js App Router UI
-  -> Next.js API Route Handlers (/app/api)
-  -> Mongoose models (/models)
+  -> Frontend Next.js App Router UI (/frontend/app)
+  -> Next.js API Route Handlers (/frontend/app/api)
+  -> Mongoose models (/frontend/models)
   -> MongoDB Atlas
 
 Crop images and chat requests
@@ -59,7 +59,7 @@ Crop images and chat requests
   -> Local image analysis fallback when Gemini is unavailable
 ```
 
-The repository also contains an Express implementation in `api/index.js` and `server.js` for standalone or legacy deployments. The Next.js route handlers and MongoDB models are the main application path used by the current frontend.
+The repository also contains an Express implementation in `backend/api/index.js` and `backend/server.js` for standalone or legacy deployments. The Next.js route handlers and MongoDB models are the main application path used by the current frontend.
 
 ## Technology Stack
 
@@ -91,14 +91,10 @@ The repository also contains an Express implementation in `api/index.js` and `se
 ## Project Structure
 
 ```text
-app/                 Next.js pages, layout, and API route handlers
-components/          Reusable UI and farmer/specialist dashboard components
-lib/                 Chat, crop analysis, mapping, and messaging helpers
-models/              Mongoose connection and database schemas
-public/              Static assets
-api/                 Standalone Express/Vercel API implementation
-apiService.ts        Frontend API client and JWT token handling
-types.ts             Shared TypeScript types
+frontend/            Next.js application, components, assets, models, and services
+backend/             Standalone Express/Vercel API, database tooling, and tests
+frontend/apiService.ts Frontend API client and JWT token handling
+frontend/types.ts    Shared TypeScript types
 ```
 
 ## Getting Started

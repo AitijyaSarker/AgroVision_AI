@@ -77,7 +77,7 @@ npm run build
 ### 🚨 Important Notes
 
 1. **MongoDB Atlas**: Ensure your IP is whitelisted or use 0.0.0.0/0 for initial testing
-2. **CORS**: Update `FRONTEND_URL` in server.js for proper cross-origin requests
+2. **CORS**: Update `FRONTEND_URL` in `backend/server.js` for proper cross-origin requests
 3. **Security**: Change the JWT secret and keep it secure
 4. **Performance**: Consider implementing Redis for session storage in high-traffic scenarios
 

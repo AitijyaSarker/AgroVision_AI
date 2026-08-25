@@ -76,7 +76,7 @@ Check the deployment status in:
 
 ### CORS Errors
 - Make sure `FRONTEND_URL` is set correctly in environment variables
-- Check that CORS origins in `api/index.js` include your Vercel domain
+- Check that CORS origins in `backend/api/index.js` include your Vercel domain
 
 ### MongoDB Connection Issues
 - Verify `MONGODB_URI` is correct
