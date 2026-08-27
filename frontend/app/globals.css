@@ -2,11 +2,40 @@
 @tailwind components;
 @tailwind utilities;
 
-
 body {
   font-family: 'Inter', 'Hind Siliguri', sans-serif;
+  background: #ffffff;
+  color: #18181b;
 }
 
 .bn {
   font-family: 'Hind Siliguri', sans-serif;
+}
+
+html.dark,
+html.dark body {
+  background: #000000;
+  color: #f4f4f5;
+}
+
+html.dark .bg-zinc-950 {
+  background-color: #000000;
+}
+
+html.dark .bg-zinc-900 {
+  background-color: #0a0a0a;
+}
+
+html.dark .bg-zinc-800 {
+  background-color: #111111;
+}
+
+html.dark .border-zinc-800,
+html.dark .border-zinc-700 {
+  border-color: #2a2a2a;
+}
+
+html.dark .rounded-3xl,
+html.dark .rounded-2xl {
+  border-radius: 8px;
 }

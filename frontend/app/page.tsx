@@ -17,13 +17,16 @@ import { Language, UserRole } from '../types';
 export default function Home() {
   const [currentPage, setCurrentPage] = useState<'home' | 'login' | 'register' | 'dashboard' | 'datasets' | 'about' | 'contact'>('home');
   const [lang, setLang] = useState<Language>('en');
-  const [theme, setTheme] = useState<'light' | 'dark'>('light');
+  const [theme, setTheme] = useState<'light' | 'dark'>('dark');
   const [userRole, setUserRole] = useState<UserRole>('guest');
   const [user, setUser] = useState<any>(null);
   useEffect(() => {
     // Load theme from localStorage
     const savedTheme = localStorage.getItem('agrovision-theme');
-    if (savedTheme === 'dark') {
+    if (savedTheme === 'light') {
+      setTheme('light');
+      document.documentElement.classList.remove('dark');
+    } else {
       setTheme('dark');
       document.documentElement.classList.add('dark');
     }
@@ -148,7 +151,7 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-screen bg-white dark:bg-zinc-900 text-zinc-900 dark:text-white">
+    <div className="min-h-screen bg-white dark:bg-black text-zinc-900 dark:text-white">
       <Navbar
         theme={theme}
         currentPage={currentPage}
