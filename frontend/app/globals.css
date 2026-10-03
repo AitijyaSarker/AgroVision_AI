@@ -1,41 +1,82 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+@import "leaflet/dist/leaflet.css";
+@import "leaflet-routing-machine/dist/leaflet-routing-machine.css";
+
+@source "../components/**/*.{tsx,ts,jsx,js}";
+@source "../app/**/*.{tsx,ts,jsx,js}";
+@source "../lib/**/*.{tsx,ts,jsx,js}";
+@source "../src/**/*.{tsx,ts,jsx,js}";
+@source "../*.{tsx,ts,jsx,js}";
+
+@variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --font-sans: 'Inter', 'Hind Siliguri', sans-serif;
+  --font-hind: 'Hind Siliguri', sans-serif;
+}
 
 body {
-  font-family: 'Inter', 'Hind Siliguri', sans-serif;
-  background: #ffffff;
-  color: #18181b;
+  font-family: var(--font-sans);
+  background-color: #ffffff;
+  color: #09090b;
 }
 
 .bn {
-  font-family: 'Hind Siliguri', sans-serif;
+  font-family: var(--font-hind);
 }
 
-html.dark,
-html.dark body {
-  background: #000000;
-  color: #f4f4f5;
+@keyframes enter {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
-html.dark .bg-zinc-950 {
-  background-color: #000000;
+@keyframes zoom-in {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 
-html.dark .bg-zinc-900 {
-  background-color: #0a0a0a;
+@keyframes slide-from-top {
+  from {
+    opacity: 0;
+    transform: translateY(-0.5rem);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
-html.dark .bg-zinc-800 {
-  background-color: #111111;
+@utility animate-in {
+  animation-fill-mode: both;
 }
 
-html.dark .border-zinc-800,
-html.dark .border-zinc-700 {
-  border-color: #2a2a2a;
+@utility fade-in {
+  animation-name: enter;
+  animation-duration: 300ms;
 }
 
-html.dark .rounded-3xl,
-html.dark .rounded-2xl {
-  border-radius: 8px;
+@utility zoom-in-95 {
+  animation-name: zoom-in;
+  animation-duration: 200ms;
+}
+
+@utility slide-in-from-top-2 {
+  animation-name: slide-from-top;
+  animation-duration: 300ms;
+}
+
+@utility duration-300 {
+  animation-duration: 300ms;
 }

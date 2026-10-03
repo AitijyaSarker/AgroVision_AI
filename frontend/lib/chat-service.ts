@@ -101,7 +101,8 @@ async function tryGeminiModel(
   modelName: string,
   message: string,
   language: string,
-  history: ChatMessage[]
+  history: ChatMessage[],
+  farmContext?: string
 ): Promise<string | null> {
   const genAI = new GoogleGenerativeAI(apiKey)
   const model = genAI.getGenerativeModel({
@@ -114,7 +115,10 @@ async function tryGeminiModel(
       ? 'Respond in Bengali (Bangla) only.'
       : 'Respond in English only.'
 
-  const prompt = `${langLine}${formatHistoryForPrompt(history)}
+  const farmContextSection = farmContext
+    ? `\n\nCurrent farm observations (data only; do not infer values that are not present):\n${farmContext}`
+    : ''
+  const prompt = `${langLine}${formatHistoryForPrompt(history)}${farmContextSection}
 
 Farmer: ${message}
 
@@ -135,7 +139,8 @@ AgroVision:`
 async function geminiReply(
   message: string,
   language: string,
-  history: ChatMessage[]
+  history: ChatMessage[],
+  farmContext?: string
 ): Promise<{ text: string | null; error?: string }> {
   const apiKey = process.env.GEMINI_API_KEY?.trim()
   if (!apiKey) {
@@ -150,7 +155,7 @@ async function geminiReply(
 
   for (const modelName of models) {
     try {
-      const text = await tryGeminiModel(apiKey, modelName, message, language, prior)
+      const text = await tryGeminiModel(apiKey, modelName, message, language, prior, farmContext)
       if (text) {
         return { text }
       }
@@ -166,7 +171,8 @@ async function geminiReply(
 async function aiServerReply(
   message: string,
   language: string,
-  history: ChatMessage[]
+  history: ChatMessage[],
+  farmContext?: string
 ): Promise<string | null> {
   const aiServerUrl = process.env.AI_SERVER_URL || process.env.NEXT_PUBLIC_AI_SERVER_URL
   if (!aiServerUrl) return null
@@ -180,6 +186,7 @@ async function aiServerReply(
         language,
         context: 'crop_disease_detection',
         history: history.slice(-10),
+        farmContext,
       }),
     })
     if (!res.ok) return null
@@ -193,9 +200,15 @@ async function aiServerReply(
 export async function generateChatResponse(
   message: string,
   language: string,
-  history: ChatMessage[] = []
+  history: ChatMessage[] = [],
+  farmContext?: string
 ): Promise<{ response: string; source: 'gemini' | 'rules' | 'ai-server' }> {
-  const { text: gemini, error: geminiError } = await geminiReply(message, language, history)
+  const { text: gemini, error: geminiError } = await geminiReply(
+    message,
+    language,
+    history,
+    farmContext
+  )
   if (gemini) {
     return { response: gemini, source: 'gemini' }
   }
@@ -204,7 +217,7 @@ export async function generateChatResponse(
     console.warn('Gemini unavailable, using fallback:', geminiError)
   }
 
-  const fromServer = await aiServerReply(message, language, history)
+  const fromServer = await aiServerReply(message, language, history, farmContext)
   if (fromServer) {
     return { response: fromServer, source: 'ai-server' }
   }

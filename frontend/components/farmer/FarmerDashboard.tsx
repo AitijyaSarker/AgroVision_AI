@@ -1,11 +1,38 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Search, MessageSquare, MapPin, Users, Bell, LayoutDashboard, RefreshCw, Send, Camera } from 'lucide-react';
+import {
+  Search,
+  MessageSquare,
+  MapPin,
+  Users,
+  Bell,
+  LayoutDashboard,
+  RefreshCw,
+  Send,
+  Camera,
+  CloudSun,
+  Compass,
+  RotateCcw,
+  Sliders,
+  Satellite,
+  Calendar,
+  Database,
+  type LucideIcon,
+} from 'lucide-react';
 import { normalizeUserId } from '../../lib/messages';
 import dynamic from 'next/dynamic';
 import { dbService } from '../../mongodb';
 import { Specialist, Conversation, Language } from '../../types';
 import { Scanner } from './Scanner';
 import { translations } from '../../translations';
+import { FarmProfileManager, FarmData } from './FarmProfileManager';
+import { CurrentConditionsView } from './CurrentConditionsView';
+import { CropPlannerView } from './CropPlannerView';
+import { WhatIfSimulatorView } from './WhatIfSimulatorView';
+import { HistoricalTrendsView } from './HistoricalTrendsView';
+import { NASADataInfoView } from './NASADataInfoView';
+import { FarmConditionReport } from '../../lib/nasa/normalizer';
+import { FarmStressAssessment, assessFarmStress } from '../../lib/engine/stressEngine';
+import { RotationAnalysisResult, generateRotationScenarios } from '../../lib/engine/rotationEngine';
 
 // Dynamically import MapComponent to prevent SSR issues
 const MapComponent = dynamic(() => import('./MapComponent').then(mod => ({ default: mod.MapComponent })), {
@@ -20,6 +47,18 @@ const MapComponent = dynamic(() => import('./MapComponent').then(mod => ({ defau
   )
 });
 
+const SatelliteFarmView = dynamic(() => import('./SatelliteFarmView').then(mod => ({ default: mod.SatelliteFarmView })), {
+  ssr: false,
+  loading: () => (
+    <div className="flex items-center justify-center h-[500px]">
+      <div className="text-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto mb-4"></div>
+        <p>Loading satellite view...</p>
+      </div>
+    </div>
+  )
+});
+
 interface FarmerDashboardProps {
   userRole: 'farmer' | 'guest';
   userId?: string;
@@ -27,6 +66,38 @@ interface FarmerDashboardProps {
   lang: Language;
   onProfileUpdate?: (updates: { name: string; avatar: string }) => void;
 }
+
+type DashboardTab =
+  | 'conditions'
+  | 'planner'
+  | 'what_if'
+  | 'my_farm'
+  | 'satellite'
+  | 'history'
+  | 'scan'
+  | 'chat'
+  | 'offices'
+  | 'specialists'
+  | 'messages'
+  | 'profile'
+  | 'nasa_data';
+
+const DEFAULT_FARM: FarmData = {
+  _id: 'farm_sylhet_default',
+  name: 'Sylhet Green Valley Farm',
+  locationName: 'Sylhet Sadar, Bangladesh',
+  latitude: 24.8949,
+  longitude: 91.8687,
+  area: 66,
+  areaUnit: 'decimal',
+  currentCrop: 'T. Aman Rice',
+  previousCrop: 'Aus Rice',
+  season: 'Rabi',
+  soilType: 'alluvial',
+  irrigation: 'partial',
+  waterSource: 'groundwater',
+  priorities: ['soil_health', 'climate_resilience', 'lower_water'],
+};
 
 const FarmerDashboard: React.FC<FarmerDashboardProps> = ({
   userRole,
@@ -36,7 +107,13 @@ const FarmerDashboard: React.FC<FarmerDashboardProps> = ({
   onProfileUpdate,
 }) => {
   const t = (key: string) => translations[key]?.[lang] || key;
-  const [activeTab, setActiveTab] = useState<'scan' | 'chat' | 'offices' | 'specialists' | 'messages' | 'profile'>('scan');
+  const [activeTab, setActiveTab] = useState<DashboardTab>('scan');
+  const [farm, setFarm] = useState<FarmData>(DEFAULT_FARM);
+  const [nasaReport, setNasaReport] = useState<FarmConditionReport | null>(null);
+  const [assessment, setAssessment] = useState<FarmStressAssessment | null>(null);
+  const [rotationAnalysis, setRotationAnalysis] = useState<RotationAnalysisResult | null>(null);
+  const [isNasaLoading, setIsNasaLoading] = useState(false);
+  const [nasaError, setNasaError] = useState<string | null>(null);
   const [specialists, setSpecialists] = useState<Specialist[]>([]);
   const [specialistsLoading, setSpecialistsLoading] = useState(false);
   const [specialistsError, setSpecialistsError] = useState<string | null>(null);
@@ -114,6 +191,27 @@ const FarmerDashboard: React.FC<FarmerDashboardProps> = ({
     const interval = setInterval(() => loadConversations(true), 8000);
     return () => clearInterval(interval);
   }, [activeTab, farmerId]);
+
+  useEffect(() => {
+    const savedFarm = localStorage.getItem('agrovision_active_farm');
+    if (savedFarm) {
+      try {
+        const parsed = JSON.parse(savedFarm) as FarmData;
+        if (
+          typeof parsed.latitude === 'number' &&
+          typeof parsed.longitude === 'number' &&
+          typeof parsed.locationName === 'string'
+        ) {
+          setFarm(parsed);
+          void fetchNASADataForFarm(parsed);
+          return;
+        }
+      } catch (error) {
+        console.warn('Could not load saved farm settings:', error);
+      }
+    }
+    void fetchNASADataForFarm(DEFAULT_FARM);
+  }, []);
 
   const loadSpecialists = async () => {
     setSpecialistsLoading(true);
@@ -268,6 +366,22 @@ const FarmerDashboard: React.FC<FarmerDashboardProps> = ({
           message: userMessage,
           language: lang,
           history: [...history, { role: 'user', content: userMessage }].slice(-10),
+          farmContext: nasaReport && assessment
+            ? [
+                `Farm: ${farm.name} (${farm.locationName})`,
+                `Coordinates: ${farm.latitude}, ${farm.longitude}`,
+                `Crops: current ${farm.currentCrop}; previous ${farm.previousCrop}; season ${farm.season}`,
+                `Soil: ${farm.soilType}; irrigation: ${farm.irrigation}; priorities: ${farm.priorities.join(', ')}`,
+                `NASA weather (${nasaReport.weather.provenance.dataQuality}): ${nasaReport.weather.currentTemp} C, high ${nasaReport.weather.tempMax} C, low ${nasaReport.weather.tempMin} C, humidity ${nasaReport.weather.relativeHumidity}%`,
+                `NASA rainfall: ${nasaReport.precipitation.recent7DaysMm} mm in 7 days, ${nasaReport.precipitation.recent30DaysMm} mm in 30 days`,
+                `NASA soil moisture: surface ${nasaReport.soilMoisture.surfaceWetness}, root zone ${nasaReport.soilMoisture.rootZoneWetness}, trend ${nasaReport.soilMoisture.trend}`,
+                `NASA vegetation: NDVI ${nasaReport.vegetation.ndviValue}, condition ${nasaReport.vegetation.vegetationCondition}`,
+                `Assessment: ${assessment.overallSignal.titleEn} — ${assessment.overallSignal.summaryEn}`,
+                `Crop scenarios: ${rotationAnalysis?.scenarios
+                  .map((scenario) => `${scenario.nextCrop.nameEn} (${scenario.suitabilityScore}% suitability)`)
+                  .join('; ') || 'not available'}`,
+              ].join('\n')
+            : undefined,
         }),
       });
 
@@ -294,8 +408,103 @@ const FarmerDashboard: React.FC<FarmerDashboardProps> = ({
     }
   };
 
+  const fetchNASADataForFarm = async (farmToQuery: FarmData) => {
+    setIsNasaLoading(true);
+    setNasaError(null);
+
+    try {
+      const query = new URLSearchParams({
+        lat: String(farmToQuery.latitude),
+        lon: String(farmToQuery.longitude),
+        locationName: farmToQuery.locationName,
+      });
+      const response = await fetch(`/api/nasa/observations?${query}`);
+      const result: { success?: boolean; report?: FarmConditionReport; error?: string } =
+        await response.json();
+
+      if (!response.ok || !result.success || !result.report) {
+        throw new Error(result.error || `NASA observations request failed (${response.status})`);
+      }
+
+      setNasaReport(result.report);
+      const nextAssessment = assessFarmStress(result.report);
+      setAssessment(nextAssessment);
+      setRotationAnalysis(
+        generateRotationScenarios(
+          farmToQuery.currentCrop,
+          farmToQuery.previousCrop,
+          farmToQuery.season,
+          farmToQuery.soilType,
+          farmToQuery.irrigation,
+          farmToQuery.priorities,
+          nextAssessment,
+          result.report
+        )
+      );
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown NASA observations error';
+      console.error('Unable to load NASA observations:', message);
+      setNasaError(message);
+    } finally {
+      setIsNasaLoading(false);
+    }
+  };
+
+  const handleSaveFarm = (updatedFarm: FarmData) => {
+    setFarm(updatedFarm);
+    localStorage.setItem('agrovision_active_farm', JSON.stringify(updatedFarm));
+    void fetchNASADataForFarm(updatedFarm);
+  };
+
   const renderContent = () => {
     switch (activeTab) {
+      case 'conditions':
+        return (
+          <CurrentConditionsView
+            lang={lang}
+            report={nasaReport}
+            assessment={assessment}
+            onRefresh={() => void fetchNASADataForFarm(farm)}
+            isLoading={isNasaLoading}
+          />
+        );
+      case 'planner':
+        return (
+          <CropPlannerView
+            lang={lang}
+            analysis={rotationAnalysis}
+            report={nasaReport}
+            isLoading={isNasaLoading}
+          />
+        );
+      case 'what_if':
+        return (
+          <WhatIfSimulatorView
+            lang={lang}
+            baseReport={nasaReport}
+            farm={farm}
+          />
+        );
+      case 'my_farm':
+        return (
+          <FarmProfileManager
+            lang={lang}
+            farm={farm}
+            onSaveFarm={handleSaveFarm}
+            isLoading={isNasaLoading}
+          />
+        );
+      case 'satellite':
+        return (
+          <SatelliteFarmView
+            lang={lang}
+            latitude={farm.latitude}
+            longitude={farm.longitude}
+            farmName={farm.name}
+          />
+        );
+      case 'history':
+        return <HistoricalTrendsView lang={lang} report={nasaReport} />;
       case 'scan':
         return <Scanner lang={lang} userId={userId} />;
       case 'chat':
@@ -651,10 +860,28 @@ const FarmerDashboard: React.FC<FarmerDashboardProps> = ({
             </div>
           </div>
         );
+      case 'nasa_data':
+        return <NASADataInfoView lang={lang} />;
       default:
         return <div>Default Content</div>;
     }
   };
+
+  const navigationTabs: { id: DashboardTab; label: string; icon: LucideIcon }[] = [
+    { id: 'conditions', label: t('tab_conditions'), icon: CloudSun },
+    { id: 'planner', label: t('tab_planner'), icon: RotateCcw },
+    { id: 'what_if', label: t('tab_what_if'), icon: Sliders },
+    { id: 'my_farm', label: t('tab_my_farm'), icon: Compass },
+    { id: 'satellite', label: t('tab_satellite'), icon: Satellite },
+    { id: 'history', label: t('tab_history'), icon: Calendar },
+    { id: 'scan', label: t('tab_disease'), icon: Search },
+    { id: 'chat', label: t('tab_chat'), icon: MessageSquare },
+    { id: 'offices', label: t('tab_offices'), icon: MapPin },
+    { id: 'specialists', label: t('tab_specialists'), icon: Users },
+    { id: 'messages', label: t('tab_messages'), icon: MessageSquare },
+    { id: 'profile', label: t('tab_profile'), icon: Users },
+    { id: 'nasa_data', label: t('tab_nasa_data'), icon: Database },
+  ];
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-8">
@@ -722,8 +949,26 @@ const FarmerDashboard: React.FC<FarmerDashboardProps> = ({
             {t('dashboard_title')}
           </h1>
           <p className="text-zinc-700 dark:text-zinc-500 mt-2 font-bold">{t('dashboard_welcome')}</p>
+          <div className="mt-3 flex flex-wrap items-center gap-2 text-sm">
+            <span className="rounded-full border border-green-200 bg-green-50 px-3 py-1 text-xs font-bold text-green-800 dark:border-green-800 dark:bg-green-950/70 dark:text-green-300">
+              NASA Space Apps 2026
+            </span>
+            <span className="font-semibold text-zinc-600 dark:text-zinc-400">
+              {farm.name} · {farm.locationName}
+            </span>
+          </div>
         </div>
         <div className="flex items-center gap-4">
+          <button
+            type="button"
+            onClick={() => void fetchNASADataForFarm(farm)}
+            disabled={isNasaLoading}
+            title={lang === 'bn' ? 'নাসা তথ্য রিফ্রেশ করুন' : 'Refresh NASA observations'}
+            aria-label={lang === 'bn' ? 'নাসা তথ্য রিফ্রেশ করুন' : 'Refresh NASA observations'}
+            className="p-2 text-zinc-700 dark:text-zinc-400 hover:text-green-700 disabled:opacity-50 transition-colors rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800"
+          >
+            <RefreshCw className={`w-5 h-5 ${isNasaLoading ? 'animate-spin' : ''}`} />
+          </button>
           <button className="p-2 text-zinc-700 dark:text-zinc-400 hover:text-green-700 transition-colors rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800">
             <Bell className="w-6 h-6" />
           </button>
@@ -736,29 +981,33 @@ const FarmerDashboard: React.FC<FarmerDashboardProps> = ({
       </div>
 
       {/* Tabs */}
-      <div className="flex flex-wrap gap-2 mb-8 p-1.5 bg-zinc-200 dark:bg-zinc-800 rounded-2xl w-fit">
-        {[
-          { id: 'scan', label: t('tab_scan'), icon: Search },
-          { id: 'chat', label: t('tab_chat'), icon: MessageSquare },
-          { id: 'offices', label: t('tab_offices'), icon: MapPin },
-          { id: 'specialists', label: t('tab_specialists'), icon: Users },
-          { id: 'messages', label: t('tab_messages'), icon: MessageSquare },
-          { id: 'profile', label: t('tab_profile'), icon: Users },
-        ].map(tab => (
+      <div className="flex flex-wrap gap-2 mb-8 p-2 bg-zinc-100 dark:bg-zinc-800/80 rounded-2xl border border-zinc-200 dark:border-zinc-700">
+        {navigationTabs.map(tab => (
           <button
             key={tab.id}
-            onClick={() => setActiveTab(tab.id as any)}
-            className={`flex items-center gap-2 px-6 py-3 rounded-xl font-black transition-all ${
+            type="button"
+            onClick={() => setActiveTab(tab.id)}
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-black transition-all ${
               activeTab === tab.id
                 ? 'bg-white dark:bg-zinc-700 text-green-700 dark:text-green-400 shadow-sm'
                 : 'text-zinc-700 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200'
             }`}
           >
-            <tab.icon className="w-5 h-5" />
+            <tab.icon className="w-4 h-4" />
             {tab.label}
           </button>
         ))}
       </div>
+
+      {nasaError && (
+        <div
+          role="alert"
+          className="mb-6 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm font-semibold text-red-700 dark:border-red-800 dark:bg-red-950/30 dark:text-red-300"
+        >
+          {lang === 'bn' ? 'নাসা তথ্য লোড করা যায়নি: ' : 'Unable to load NASA observations: '}
+          {nasaError}
+        </div>
+      )}
 
       <div className="min-h-[500px]">
         {renderContent()}

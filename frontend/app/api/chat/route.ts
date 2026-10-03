@@ -16,12 +16,14 @@ export async function POST(request: NextRequest) {
             ((m as ChatMessage).role === 'user' || (m as ChatMessage).role === 'assistant')
         )
       : []
+    const farmContext =
+        typeof body.farmContext === 'string' ? body.farmContext.slice(0, 4000) : undefined;
 
     if (!message) {
       return NextResponse.json({ error: 'Message is required' }, { status: 400 })
     }
 
-    const { response, source } = await generateChatResponse(message, language, history)
+    const { response, source } = await generateChatResponse(message, language, history, farmContext)
 
     return NextResponse.json({ response, language, source })
   } catch (error) {

@@ -1,6 +1,9 @@
+import path from 'node:path';
+import dotenv from 'dotenv';
 import mongoose from 'mongoose';
 
-// Set MONGODB_URI in .env.local (MongoDB Atlas connection string)
+dotenv.config({ path: path.resolve(process.cwd(), '.env.local') });
+
 const MONGODB_URI = process.env.MONGODB_URI?.trim() || '';
 
 let isConnected = false;
@@ -77,3 +80,26 @@ const scanSchema = new mongoose.Schema({
 export const User = (mongoose.models.User || mongoose.model('User', userSchema)) as any;
 export const Message = (mongoose.models.Message || mongoose.model('Message', messageSchema)) as any;
 export const Scan = (mongoose.models.Scan || mongoose.model('Scan', scanSchema)) as any;
+
+interface IPasswordReset {
+  email: string;
+  codeHash: string;
+  attempts: number;
+  lastSentAt: Date;
+  expiresAt: Date;
+}
+
+const passwordResetSchema = new mongoose.Schema<IPasswordReset>(
+  {
+    email: { type: String, required: true, unique: true, index: true },
+    codeHash: { type: String, required: true },
+    attempts: { type: Number, required: true, default: 0 },
+    lastSentAt: { type: Date, required: true },
+    expiresAt: { type: Date, required: true, index: { expires: 0 } },
+  },
+  { timestamps: true }
+);
+
+export const PasswordReset: mongoose.Model<IPasswordReset> =
+  (mongoose.models.PasswordReset as mongoose.Model<IPasswordReset> | undefined) ||
+  mongoose.model<IPasswordReset>('PasswordReset', passwordResetSchema);

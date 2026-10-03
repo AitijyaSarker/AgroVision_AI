@@ -9,7 +9,9 @@ export async function POST(request: NextRequest) {
     await connectDB();
     console.log('✅ Connected to MongoDB, processing login...');
 
-    const { email, password } = await request.json();
+    const body = await request.json();
+    const email = typeof body.email === 'string' ? body.email.trim().toLowerCase() : '';
+    const password = typeof body.password === 'string' ? body.password : '';
 
     // Validate required fields
     if (!email || !password) {

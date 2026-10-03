@@ -1,104 +1,40 @@
-# 🚀 AgroVision Deployment Guide
+# AgroVision Deployment
 
-## ✅ Your App is Production Ready!
+## Vercel
 
-### **📋 Deployment Checklist:**
-- [x] MongoDB Atlas connected
-- [x] Frontend built successfully
-- [x] Backend API ready
-- [x] Environment variables configured
+Import this repository as a Next.js project using the repository root. The
+root `vercel.json` configures the build command and Next.js output.
 
----
+Add these environment variables in Vercel for every environment you use
+(Development, Preview, and Production):
 
-## **1️⃣ Deploy Backend (Railway) - FREE & EASY**
+| Variable | Required | Purpose |
+| --- | --- | --- |
+| `MONGODB_URI` | Yes | MongoDB Atlas connection string. Keep `/test` as the database name in the URI; `test` is the active user database. |
+| `JWT_SECRET` | Yes | Long, random secret used to sign login tokens. |
+| `GEMINI_API_KEY` | Recommended | Enables Gemini-powered farming chat. |
+| `RESEND_API_KEY` | For password recovery | Resend API key used to deliver one-time recovery codes. |
+| `RESEND_FROM_EMAIL` | For password recovery | Sender address verified in Resend, for example `AgroVision <no-reply@your-verified-domain.com>`. |
+| `PASSWORD_RESET_SECRET` | For password recovery | Separate long, random secret used to hash recovery codes. |
+| `NEXT_PUBLIC_AI_SERVER_URL` | Optional | External AI server URL, if one is configured. |
 
-### **Steps:**
-1. **Go to:** https://railway.app
-2. **Sign up/Login** with GitHub
-3. **Click "New Project"** → "Deploy from GitHub"
-4. **Connect your GitHub repo** (push your code first)
-5. **Railway will auto-detect** Node.js and deploy
-6. **Add environment variables:**
-   ```
-   MONGODB_URI=mongodb+srv://aitijyasarker_db_user:wtLpEZNasdRcTFnN@agrovision.11t3bdv.mongodb.net/
-   JWT_SECRET=your-super-secret-jwt-key-change-this-in-production-agrovision-2024
-   FRONTEND_URL=https://your-frontend-domain.vercel.app
-   NODE_ENV=production
-   PORT=3001
-   ```
+Do not set `NEXT_PUBLIC_API_URL` to an external backend for this deployment:
+the frontend calls the same-origin Next.js API routes. Leave it unset or empty.
+Never add `.env.local`, database credentials, API keys, or real secrets to Git.
 
-### **🎯 Result:** `https://your-project-name.up.railway.app`
+After setting the variables, redeploy from the `master` branch and check the
+Vercel deployment logs if a route reports a configuration error. Password
+recovery codes expire after 10 minutes and are limited to five attempts.
 
----
+## Local development
 
-## **2️⃣ Deploy Frontend (Vercel) - FREE & EASY**
+Copy `.env.example` to `.env.local`, then fill in the real values. Keep the
+MongoDB URI pointed at `/test` to use the active account database. Start the
+app from the repository root with:
 
-### **Steps:**
-1. **Go to:** https://vercel.com
-2. **Sign up/Login** with GitHub
-3. **Click "New Project"**
-4. **Import your GitHub repo**
-5. **Configure build settings:**
-   - **Framework:** Vite
-   - **Root Directory:** `./` (leave default)
-   - **Build Command:** `npm run build`
-   - **Output Directory:** `dist`
-6. **Add environment variables:**
-   ```
-   REACT_APP_API_URL=https://your-backend-url.up.railway.app/api
-   VITE_GEMINI_API_KEY=your-gemini-api-key
-   ```
-7. **Click "Deploy"**
-
-### **🎯 Result:** `https://your-project-name.vercel.app`
-
----
-
-## **3️⃣ Update Backend CORS (After Frontend Deploy)**
-
-Once you have your Vercel domain, update Railway environment variables:
-```
-FRONTEND_URL=https://your-project-name.vercel.app
+```sh
+npm install
+npm run dev
 ```
 
----
-
-## **4️⃣ Test Your Deployed App**
-
-1. **Visit your Vercel URL**
-2. **Try user registration** - should work now!
-3. **Test login, messaging, AI features**
-
----
-
-## **🔧 Quick Commands:**
-
-```bash
-# Push to GitHub first
-git add .
-git commit -m "Production deployment"
-git push origin main
-
-# Then deploy via web interfaces above
-```
-
----
-
-## **🎉 Expected Results:**
-
-✅ **User Registration:** Data stored in MongoDB Atlas  
-✅ **Farmer-Specialist Chat:** Real-time messaging  
-✅ **AI Crop Disease Detection:** Gemini AI working  
-✅ **Map Features:** Location services active  
-✅ **Multi-language:** Bengali/English support  
-
----
-
-## **💡 Pro Tips:**
-
-- **Railway Free Tier:** 512MB RAM, enough for your app
-- **Vercel Free Tier:** Unlimited bandwidth, perfect for frontend
-- **MongoDB Atlas:** Free tier handles your traffic
-- **Domain:** Can add custom domain later
-
-**Ready to deploy? Your app will work perfectly once deployed! 🚀**
+The local app runs at `http://localhost:3000`.
